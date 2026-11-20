@@ -30,6 +30,7 @@ import { formatBerasKg, formatRupiah, formatTanggalIndonesia } from '@/lib/forma
 import type {
     SharedProps,
     ViewLaporanPenyaluranPublik,
+    ViewRekapPenghimpunanMuzaki,
     ViewRekapPenyaluranAsnaf,
     ViewSaldoJenisDana,
 } from '@/types';
@@ -43,7 +44,7 @@ interface TransparansiProps {
     saldoDana: ViewSaldoJenisDana[];
     rekapAsnaf: ViewRekapPenyaluranAsnaf[];
     laporanPenyaluranPublik: ViewLaporanPenyaluranPublik[];
-    rekapMuzaki?: Array<Record<string, unknown>>;
+    rekapMuzaki?: ViewRekapPenghimpunanMuzaki[];
     rdbmsError?: string | null;
 }
 
@@ -51,6 +52,7 @@ export default function TransparansiPublik({
     saldoDana = [],
     rekapAsnaf = [],
     laporanPenyaluranPublik = [],
+    rekapMuzaki = [],
     rdbmsError,
 }: TransparansiProps) {
     const { auth } = usePage<SharedProps>().props;
@@ -77,7 +79,7 @@ export default function TransparansiPublik({
     const handleRefreshData = () => {
         setIsRefreshing(true);
         router.reload({
-            only: ['saldoDana', 'rekapAsnaf', 'laporanPenyaluranPublik', 'rdbmsError'],
+            only: ['saldoDana', 'rekapAsnaf', 'laporanPenyaluranPublik', 'rekapMuzaki', 'rdbmsError'],
             onFinish: () => setIsRefreshing(false),
         });
     };
@@ -249,7 +251,10 @@ export default function TransparansiPublik({
                                     2. Rekap 8 Asnaf (v_rekap_penyaluran_asnaf)
                                 </TabsTrigger>
                                 <TabsTrigger value="penyaluran">
-                                    3. Realisasi Penyaluran Publik (v_laporan_penyaluran_publik)
+                                    3. Realisasi Penyaluran (v_laporan_penyaluran_publik)
+                                </TabsTrigger>
+                                <TabsTrigger value="muzaki">
+                                    4. Rekap Muzaki (v_rekap_penghimpunan_muzaki)
                                 </TabsTrigger>
                             </TabsList>
 
@@ -481,6 +486,75 @@ export default function TransparansiPublik({
                                             ))}
                                         </div>
                                     </>
+                                )}
+                            </TabsContent>
+
+                            {/* TAB 4: v_rekap_penghimpunan_muzaki */}
+                            <TabsContent value="muzaki" className="pt-4">
+                                {rekapMuzaki.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
+                                        VIEW v_rekap_penghimpunan_muzaki belum mengembalikan baris data.
+                                    </div>
+                                ) : (
+                                    <div className="rounded-lg border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Muzaki & NIK Tersamar</TableHead>
+                                                    <TableHead>Periode</TableHead>
+                                                    <TableHead className="text-right">Frekuensi</TableHead>
+                                                    <TableHead className="text-right">Total Donasi Uang</TableHead>
+                                                    <TableHead className="text-right">Total Beras Fitrah</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {rekapMuzaki.map((row, idx) => (
+                                                    <TableRow key={idx}>
+                                                        <TableCell>
+                                                            <p className="font-semibold text-sm">
+                                                                {String(
+                                                                    row.nama_muzaki_masked ??
+                                                                        row.nama_lengkap ??
+                                                                        'Muzaki'
+                                                                )}
+                                                            </p>
+                                                            <p className="font-mono text-xs text-muted-foreground">
+                                                                NIK:{' '}
+                                                                {String(
+                                                                    row.nik_muzaki_masked ??
+                                                                        row.nik_masked ??
+                                                                        '****************'
+                                                                )}
+                                                            </p>
+                                                        </TableCell>
+                                                        <TableCell className="text-xs">
+                                                            {row.tahun_hijriah
+                                                                ? `Ramadhan ${row.tahun_hijriah} H (${row.tahun_masehi ?? ''})`
+                                                                : '-'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right tabular-nums">
+                                                            {Number(
+                                                                row.frekuensi_transaksi ??
+                                                                    row.frekuensi_setoran ??
+                                                                    0
+                                                            )}
+                                                            x
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-bold tabular-nums text-primary">
+                                                            {formatRupiah(
+                                                                Number(row.total_nominal ?? 0)
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-bold tabular-nums">
+                                                            {formatBerasKg(
+                                                                Number(row.total_beras_kg ?? 0)
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 )}
                             </TabsContent>
                         </Tabs>

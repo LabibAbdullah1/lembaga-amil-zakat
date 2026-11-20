@@ -201,6 +201,21 @@ export interface ViewLaporanPenyaluranPublik {
     beras_diterima_kg: number | string;
 }
 
+export interface ViewRekapPenghimpunanMuzaki {
+    nik_muzaki_masked?: string;
+    nik_masked?: string;
+    nama_muzaki_masked?: string;
+    nama_lengkap?: string;
+    jenis_muzaki?: string;
+    tahun_hijriah?: string;
+    tahun_masehi?: number;
+    frekuensi_transaksi?: number;
+    frekuensi_setoran?: number;
+    total_nominal?: number | string;
+    total_beras_kg?: number | string;
+    [key: string]: unknown;
+}
+
 export interface SharedProps {
     auth: {
         user: PenggunaSistem | null;
