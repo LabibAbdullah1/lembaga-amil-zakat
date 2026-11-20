@@ -96,8 +96,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/mustahik',
         icon: CheckCircle2,
         roles: ['Admin', 'Verifikator', 'Staf_Penyaluran', 'Ketua_DKM'],
-        available: false,
-        sprintNote: 'Sprint 3',
+        available: true,
     },
     {
         key: 'penyaluran',
@@ -106,8 +105,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/penyaluran',
         icon: FileSpreadsheet,
         roles: ['Admin', 'Staf_Penyaluran', 'Ketua_DKM'],
-        available: false,
-        sprintNote: 'Sprint 3',
+        available: true,
     },
     {
         key: 'master-periode',
@@ -152,8 +150,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/laporan',
         icon: BarChart3,
         roles: ['Admin', 'Ketua_DKM'],
-        available: false,
-        sprintNote: 'Sprint 4',
+        available: true,
     },
     {
         key: 'audit',
@@ -162,8 +159,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/audit',
         icon: History,
         roles: ['Admin', 'Ketua_DKM'],
-        available: false,
-        sprintNote: 'Sprint 4',
+        available: true,
     },
 ];
 

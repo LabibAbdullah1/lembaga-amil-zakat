@@ -1,23 +1,23 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\Master\JenisDanaController;
 use App\Http\Controllers\Master\PenggunaSistemController;
 use App\Http\Controllers\Master\PeriodeRamadhanController;
 use App\Http\Controllers\Master\ProgramPenyaluranController;
+use App\Http\Controllers\MustahikController;
 use App\Http\Controllers\MuzakiController;
 use App\Http\Controllers\PenghimpunanController;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\PenyaluranController;
+use App\Http\Controllers\TransparansiPublikController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect()->route('dashboard');
-    }
-
-    return redirect()->route('login');
-})->name('home');
+// Portal Transparansi Publik (Tanpa Login, Eksklusif Koneksi mysql_laporan / zis_laporan)
+Route::get('/', [TransparansiPublikController::class, 'index'])->name('home');
+Route::get('/transparansi', [TransparansiPublikController::class, 'index'])->name('transparansi.index');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])
@@ -56,7 +56,7 @@ Route::middleware(['auth', 'rdbms.user'])->group(function () {
         Route::patch('/pengguna/{id}/toggle', [PenggunaSistemController::class, 'toggleAktif'])->name('pengguna.toggle');
     });
 
-    // Modul Muzaki & Anggota Keluarga (Admin, Amil_Penerima)
+    // Modul Muzaki & Loket Penghimpunan Cepat (Admin, Amil_Penerima)
     Route::middleware('role:Admin,Amil_Penerima')->group(function () {
         Route::get('/muzaki', [MuzakiController::class, 'index'])->name('muzaki.index');
         Route::post('/muzaki', [MuzakiController::class, 'store'])->name('muzaki.store');
@@ -65,10 +65,48 @@ Route::middleware(['auth', 'rdbms.user'])->group(function () {
         Route::post('/muzaki/{muzakiId}/anggota', [MuzakiController::class, 'storeAnggota'])->name('muzaki.anggota.store');
         Route::delete('/muzaki/{muzakiId}/anggota/{anggotaId}', [MuzakiController::class, 'destroyAnggota'])->name('muzaki.anggota.destroy');
 
-        // Modul Loket Penghimpunan Cepat (POS Masjid)
         Route::get('/loket', [PenghimpunanController::class, 'index'])->name('loket.index');
         Route::post('/loket', [PenghimpunanController::class, 'store'])->name('loket.store');
         Route::post('/loket/{transaksiId}/batalkan', [PenghimpunanController::class, 'batalkan'])->name('loket.batalkan');
         Route::get('/loket/{transaksiId}/pdf', [PenghimpunanController::class, 'downloadPdf'])->name('loket.pdf');
+    });
+
+    // Modul Mustahik & Survei Verifikator (Verifikator, Staf_Penyaluran, Admin, Ketua_DKM)
+    Route::middleware('role:Admin,Verifikator,Staf_Penyaluran,Ketua_DKM')->group(function () {
+        Route::get('/mustahik', [MustahikController::class, 'index'])->name('mustahik.index');
+        Route::post('/mustahik', [MustahikController::class, 'store'])->name('mustahik.store');
+        Route::put('/mustahik/{id}', [MustahikController::class, 'update'])->name('mustahik.update');
+    });
+
+    // Input Survei Lapangan via sp_verifikasi_mustahik (Khusus Verifikator, Admin, Ketua_DKM)
+    Route::middleware('role:Admin,Verifikator,Ketua_DKM')->group(function () {
+        Route::post('/mustahik/{mustahikId}/verifikasi', [MustahikController::class, 'verifikasi'])
+            ->name('mustahik.verifikasi');
+    });
+
+    // Modul Penyaluran Dana / BKK Multi-Mustahik (Staf_Penyaluran, Ketua_DKM, Admin)
+    Route::middleware('role:Admin,Staf_Penyaluran,Ketua_DKM')->group(function () {
+        Route::get('/penyaluran', [PenyaluranController::class, 'index'])->name('penyaluran.index');
+        Route::get('/penyaluran/buat', [PenyaluranController::class, 'create'])->name('penyaluran.create');
+        Route::post('/penyaluran', [PenyaluranController::class, 'store'])->name('penyaluran.store');
+        Route::get('/penyaluran/{id}', [PenyaluranController::class, 'show'])->name('penyaluran.show');
+        Route::post('/penyaluran/{penyaluranId}/mustahik', [PenyaluranController::class, 'tambahMustahik'])
+            ->name('penyaluran.mustahik.store');
+        Route::get('/penyaluran/{penyaluranId}/pdf', [PenyaluranController::class, 'downloadPdf'])
+            ->name('penyaluran.pdf');
+    });
+
+    // Persetujuan, Penolakan, & Eksekusi Pencairan BKK (Khusus Ketua_DKM, Admin)
+    Route::middleware('role:Ketua_DKM,Admin')->group(function () {
+        Route::post('/penyaluran/{penyaluranId}/setujui', [PenyaluranController::class, 'setujui'])
+            ->name('penyaluran.setujui');
+        Route::post('/penyaluran/{penyaluranId}/tolak', [PenyaluranController::class, 'tolak'])
+            ->name('penyaluran.tolak');
+        Route::post('/penyaluran/{penyaluranId}/eksekusi', [PenyaluranController::class, 'eksekusi'])
+            ->name('penyaluran.eksekusi');
+
+        // Modul 4 Laporan Analitik Wajib & Audit Trail JSON (Admin, Ketua_DKM)
+        Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
     });
 });
