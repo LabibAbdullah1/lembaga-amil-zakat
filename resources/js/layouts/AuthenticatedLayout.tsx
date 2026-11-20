@@ -78,8 +78,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/loket',
         icon: HandCoins,
         roles: ['Admin', 'Amil_Penerima'],
-        available: false,
-        sprintNote: 'Sprint 2',
+        available: true,
     },
     {
         key: 'muzaki',
@@ -88,8 +87,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/muzaki',
         icon: Users,
         roles: ['Admin', 'Amil_Penerima'],
-        available: false,
-        sprintNote: 'Sprint 2',
+        available: true,
     },
     {
         key: 'mustahik',
@@ -118,8 +116,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/master/periode',
         icon: CalendarClock,
         roles: ['Admin'],
-        available: false,
-        sprintNote: 'Sprint 2',
+        available: true,
     },
     {
         key: 'master-dana',
@@ -128,8 +125,16 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/master/jenis-dana',
         icon: FolderTree,
         roles: ['Admin'],
-        available: false,
-        sprintNote: 'Sprint 2',
+        available: true,
+    },
+    {
+        key: 'master-program',
+        label: 'Program Penyaluran',
+        group: 'Master Data',
+        href: '/master/program',
+        icon: ShieldAlert,
+        roles: ['Admin'],
+        available: true,
     },
     {
         key: 'master-pengguna',
@@ -138,8 +143,7 @@ const NAV_ITEMS: NavItemConfig[] = [
         href: '/master/pengguna',
         icon: UserCog,
         roles: ['Admin'],
-        available: false,
-        sprintNote: 'Sprint 2',
+        available: true,
     },
     {
         key: 'laporan',
