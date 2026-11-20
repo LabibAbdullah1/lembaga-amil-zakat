@@ -2,6 +2,8 @@ import * as React from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
     CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
     ClipboardCheck,
     Edit3,
     Plus,
@@ -103,6 +105,15 @@ export default function MustahikIndex({
     const [formDialogOpen, setFormDialogOpen] = React.useState<boolean>(false);
     const [editingMustahik, setEditingMustahik] = React.useState<MustahikRow | null>(null);
     const [surveiTarget, setSurveiTarget] = React.useState<MustahikRow | null>(null);
+    const [limitMustahik, setLimitMustahik] = React.useState<number>(10);
+    const [pageMustahik, setPageMustahik] = React.useState<number>(1);
+
+    const totalPagesMustahik = Math.max(1, Math.ceil(daftarMustahik.length / limitMustahik));
+    const currentPageMustahik = Math.min(pageMustahik, totalPagesMustahik);
+    const paginatedMustahik = React.useMemo(() => {
+        const start = (currentPageMustahik - 1) * limitMustahik;
+        return daftarMustahik.slice(start, start + limitMustahik);
+    }, [daftarMustahik, currentPageMustahik, limitMustahik]);
 
     React.useEffect(() => {
         const onOnline = () => setIsOnline(true);
@@ -218,7 +229,7 @@ export default function MustahikIndex({
     return (
         <AuthenticatedLayout
             title="Manajemen Mustahik (8 Asnaf) & Survei Kelayakan Lapangan"
-            subtitle="Kelayakan penerima dana Zakat divalidasi oleh fn_cek_kelayakan_mustahik(id) = 1 (Status Layak & <= 365 hari)"
+            subtitle="Pendaftaran calon penerima manfaat dan pencatatan hasil verifikasi kelayakan survei lapangan (masa berlaku 365 hari)"
         >
             <Head title="Mustahik & Survei Verifikator" />
 
@@ -235,7 +246,7 @@ export default function MustahikIndex({
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Event <code className="font-mono text-xs">evt_kedaluwarsa_verifikasi_mustahik</code> otomatis mengubah status <code className="font-mono text-xs">Layak</code> menjadi <code className="font-mono text-xs">Kedaluwarsa</code> setelah melewati 365 hari.
+                                Status kelayakan survei berlaku selama 365 hari sejak tanggal verifikasi terakhir dan diperbarui secara berkala.
                             </CardDescription>
                         </div>
 
@@ -258,7 +269,7 @@ export default function MustahikIndex({
 
                             <TabsContent value="mustahik" className="space-y-4 pt-3">
                                 <form onSubmit={handleFilterSubmit} className="grid gap-3 sm:grid-cols-12">
-                                    <div className="sm:col-span-5">
+                                    <div className="sm:col-span-4">
                                         <Label htmlFor="cari-mustahik" className="sr-only">
                                             Cari NIK, Nama, atau Alamat
                                         </Label>
@@ -321,10 +332,24 @@ export default function MustahikIndex({
                                         </Select>
                                     </div>
 
-                                    <div className="sm:col-span-1">
-                                        <Button type="submit" variant="secondary" className="w-full">
-                                            Cari
-                                        </Button>
+                                    <div className="sm:col-span-2">
+                                        <Select
+                                            value={String(limitMustahik)}
+                                            onValueChange={(val) => {
+                                                setLimitMustahik(Number.parseInt(val, 10) || 10);
+                                                setPageMustahik(1);
+                                            }}
+                                        >
+                                            <SelectTrigger aria-label="Limit Baris Mustahik">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="10">10 baris</SelectItem>
+                                                <SelectItem value="25">25 baris</SelectItem>
+                                                <SelectItem value="50">50 baris</SelectItem>
+                                                <SelectItem value="100">100 baris</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </form>
 
@@ -337,21 +362,21 @@ export default function MustahikIndex({
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="hidden md:block rounded-lg border">
+                                        <div className="hidden md:block max-h-[540px] overflow-y-auto rounded-lg border">
                                             <Table>
-                                                <TableHeader>
+                                                <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                                     <TableRow>
                                                         <TableHead>NIK & Nama Mustahik</TableHead>
                                                         <TableHead>Golongan Asnaf</TableHead>
                                                         <TableHead>Status Verifikasi</TableHead>
                                                         <TableHead>
-                                                            Badge Kelayakan RDBMS (fn_cek_kelayakan_mustahik)
+                                                            Kelayakan Penerima Zakat
                                                         </TableHead>
                                                         <TableHead className="text-right">Tindakan</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {daftarMustahik.map((row) => {
+                                                    {paginatedMustahik.map((row) => {
                                                         const layakSyariat =
                                                             Number(row.is_layak_syariat) === 1 ||
                                                             row.is_layak_syariat === true;
@@ -393,8 +418,8 @@ export default function MustahikIndex({
                                                                                 className="mr-1 h-3.5 w-3.5"
                                                                                 aria-hidden="true"
                                                                             />
-                                                                            Sah Terima Zakat (1) •{' '}
-                                                                            {row.usia_verifikasi_hari ?? 0}h
+                                                                            Memenuhi Syarat Zakat •{' '}
+                                                                            {row.usia_verifikasi_hari ?? 0} hari
                                                                         </Badge>
                                                                     ) : (
                                                                         <Badge variant="destructive">
@@ -402,7 +427,7 @@ export default function MustahikIndex({
                                                                                 className="mr-1 h-3.5 w-3.5"
                                                                                 aria-hidden="true"
                                                                             />
-                                                                            Ditolak RDBMS untuk Zakat (0)
+                                                                            Belum Memenuhi Syarat
                                                                         </Badge>
                                                                     )}
                                                                 </TableCell>
@@ -444,7 +469,7 @@ export default function MustahikIndex({
                                         </div>
 
                                         <div className="grid gap-3 md:hidden">
-                                            {daftarMustahik.map((row) => {
+                                            {paginatedMustahik.map((row) => {
                                                 const layakSyariat =
                                                     Number(row.is_layak_syariat) === 1 ||
                                                     row.is_layak_syariat === true;
@@ -473,14 +498,14 @@ export default function MustahikIndex({
                                                         </div>
 
                                                         <div className="flex items-center justify-between rounded bg-muted/40 p-2 text-xs">
-                                                            <span>fn_cek_kelayakan_mustahik:</span>
+                                                            <span>Kelayakan Penerima Zakat:</span>
                                                             {layakSyariat ? (
                                                                 <Badge variant="success">
-                                                                    Layak Zakat (1) • {row.usia_verifikasi_hari ?? 0}h
+                                                                    Layak Zakat • {row.usia_verifikasi_hari ?? 0} hari
                                                                 </Badge>
                                                             ) : (
                                                                 <Badge variant="destructive">
-                                                                    Tidak Memenuhi Syarat Zakat (0)
+                                                                    Belum Memenuhi Syarat
                                                                 </Badge>
                                                             )}
                                                         </div>
@@ -516,6 +541,37 @@ export default function MustahikIndex({
                                                 );
                                             })}
                                         </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
+                                            <span className="text-muted-foreground tabular-nums">
+                                                Menampilkan {paginatedMustahik.length} dari {daftarMustahik.length} mustahik (Halaman{' '}
+                                                {currentPageMustahik} / {totalPagesMustahik})
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={currentPageMustahik <= 1}
+                                                    onClick={() => setPageMustahik((p) => Math.max(1, p - 1))}
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                                    <span>Sebelumnya</span>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={currentPageMustahik >= totalPagesMustahik}
+                                                    onClick={() =>
+                                                        setPageMustahik((p) => Math.min(totalPagesMustahik, p + 1))
+                                                    }
+                                                >
+                                                    <span>Berikutnya</span>
+                                                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </>
                                 )}
                             </TabsContent>
@@ -526,9 +582,9 @@ export default function MustahikIndex({
                                         Belum ada riwayat survei pada tabel verifikasi_mustahik.
                                     </div>
                                 ) : (
-                                    <div className="rounded-lg border">
+                                    <div className="max-h-[540px] overflow-y-auto rounded-lg border">
                                         <Table>
-                                            <TableHeader>
+                                            <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                                 <TableRow>
                                                     <TableHead>Tanggal Survei</TableHead>
                                                     <TableHead>Mustahik (NIK)</TableHead>
@@ -674,7 +730,7 @@ export default function MustahikIndex({
                             Input Hasil Survei Lapangan: {surveiTarget?.nama_lengkap}
                         </DialogTitle>
                         <DialogDescription>
-                            Mengeksekusi <code className="font-mono text-xs">CALL sp_verifikasi_mustahik(?, ?, ?, ?)</code> untuk menyimpan riwayat survei, memperbarui <code className="font-mono text-xs">tanggal_verifikasi_terakhir</code>, dan mencatat audit JSON.
+                            Catat keputusan hasil survei lapangan untuk memperbarui status kelayakan dan masa berlaku verifikasi mustahik.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -741,7 +797,7 @@ export default function MustahikIndex({
                                 <ShieldAlert className="h-4 w-4" aria-hidden="true" />
                                 <span>
                                     {surveiForm.processing
-                                        ? 'Menjalankan sp_verifikasi_mustahik...'
+                                        ? 'Menyimpan Hasil Survei...'
                                         : 'Simpan Hasil Survei'}
                                 </span>
                             </Button>

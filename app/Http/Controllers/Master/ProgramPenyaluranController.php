@@ -22,21 +22,23 @@ class ProgramPenyaluranController extends Controller
 
         try {
             $daftarProgram = DB::connection('mysql')->select(
-                'SELECT pp.id, pp.kode_program, pp.nama_program, pp.jenis_dana_id,
+                "SELECT pp.id, pp.kode_program, pp.nama_program, pp.jenis_dana_id,
                         jd.kode_dana, jd.nama_dana, jd.kategori_utama,
                         pp.periode_id, pr.tahun_hijriah, pr.tahun_masehi,
                         pp.anggaran_rencana, pp.status_program
                  FROM program_penyaluran pp
                  INNER JOIN jenis_dana jd ON jd.id = pp.jenis_dana_id
                  INNER JOIN periode_ramadhan pr ON pr.id = pp.periode_id
-                 ORDER BY pr.tahun_masehi DESC, pp.kode_program ASC'
+                 WHERE jd.kategori_utama = 'Zakat'
+                 ORDER BY pr.tahun_masehi DESC, pp.kode_program ASC"
             );
 
             $daftarDanaOperasional = DB::connection('mysql')->select(
-                'SELECT jd.id, jd.kode_dana, jd.nama_dana, jd.kategori_utama, jd.saldo_tersedia, jd.saldo_beras_kg
+                "SELECT jd.id, jd.kode_dana, jd.nama_dana, jd.kategori_utama, jd.saldo_tersedia, jd.saldo_beras_kg
                  FROM jenis_dana jd
-                 WHERE NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
-                 ORDER BY jd.kategori_utama ASC, jd.kode_dana ASC'
+                 WHERE jd.kategori_utama = 'Zakat'
+                   AND NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
+                 ORDER BY jd.kode_dana ASC"
             );
 
             $daftarPeriode = DB::connection('mysql')->select(
@@ -44,8 +46,8 @@ class ProgramPenyaluranController extends Controller
                  FROM periode_ramadhan
                  ORDER BY status_aktif DESC, tahun_masehi DESC'
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal membaca data program penyaluran: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarProgram = [];
         }
 
         return Inertia::render('Master/Program', [

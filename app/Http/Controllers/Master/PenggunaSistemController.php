@@ -27,8 +27,8 @@ class PenggunaSistemController extends Controller
                  FROM pengguna_sistem
                  ORDER BY status_aktif DESC, peran ASC, nama_lengkap ASC'
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal membaca tabel pengguna_sistem: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarPengguna = [];
         }
 
         return Inertia::render('Master/Pengguna', [

@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\RdbmsErrorHandler;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -19,51 +17,73 @@ class AuditLogController extends Controller
         $tanggalMulai = trim((string) $request->query('dari', ''));
         $tanggalAkhir = trim((string) $request->query('sampai', ''));
 
+        $allowedLimits = [10, 25, 50, 100];
+        $requestedLimit = (int) $request->query('limit', 15);
+        $perPage = in_array($requestedLimit, $allowedLimits, true) ? $requestedLimit : 10;
+        $page = max(1, (int) $request->query('page', 1));
+        $offset = ($page - 1) * $perPage;
+
         $daftarLog = [];
+        $totalLog = 0;
         $rdbmsError = null;
 
         try {
-            $sql = 'SELECT id, nama_tabel, record_id, aksi, data_lama, data_baru, dilakukan_oleh, waktu_kejadian
-                    FROM log_audit_zis
-                    WHERE 1=1';
+            $whereClause = ' WHERE 1=1';
             $bindings = [];
 
             if ($tabelFilter !== '' && $tabelFilter !== 'SEMUA') {
-                $sql .= ' AND nama_tabel = ?';
+                $whereClause .= ' AND nama_tabel = ?';
                 $bindings[] = $tabelFilter;
             }
 
             if (in_array($aksiFilter, ['INSERT', 'UPDATE', 'DELETE'], true)) {
-                $sql .= ' AND aksi = ?';
+                $whereClause .= ' AND aksi = ?';
                 $bindings[] = $aksiFilter;
             }
 
             if ($tanggalMulai !== '') {
-                $sql .= ' AND DATE(waktu_kejadian) >= ?';
+                $whereClause .= ' AND DATE(waktu_kejadian) >= ?';
                 $bindings[] = $tanggalMulai;
             }
 
             if ($tanggalAkhir !== '') {
-                $sql .= ' AND DATE(waktu_kejadian) <= ?';
+                $whereClause .= ' AND DATE(waktu_kejadian) <= ?';
                 $bindings[] = $tanggalAkhir;
             }
 
-            $sql .= ' ORDER BY waktu_kejadian DESC, id DESC LIMIT 150';
+            $countRow = DB::connection('mysql')->selectOne(
+                'SELECT COUNT(id) AS total FROM log_audit_zis' . $whereClause,
+                $bindings
+            );
+            $totalLog = (int) ($countRow->total ?? 0);
 
-            $daftarLog = DB::connection('mysql')->select($sql, $bindings);
-        } catch (QueryException $e) {
-            $rdbmsError = RdbmsErrorHandler::extractCleanMessage($e);
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal membaca tabel terpartisi log_audit_zis: ' . $e->getMessage();
+            $daftarLog = DB::connection('mysql')->select(
+                'SELECT id, nama_tabel, record_id, aksi, data_lama, data_baru, dilakukan_oleh, waktu_kejadian
+                 FROM log_audit_zis'
+                . $whereClause .
+                ' ORDER BY waktu_kejadian DESC, id DESC
+                  LIMIT ? OFFSET ?',
+                [...$bindings, $perPage, $offset]
+            );
+        } catch (Throwable) {
+            $daftarLog = [];
+            $totalLog = 0;
         }
 
         return Inertia::render('Audit/Index', [
             'daftarLog' => $daftarLog,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $totalLog,
+                'last_page' => max(1, (int) ceil($totalLog / $perPage)),
+            ],
             'filters' => [
                 'tabel' => $tabelFilter,
                 'aksi' => $aksiFilter,
                 'dari' => $tanggalMulai,
                 'sampai' => $tanggalAkhir,
+                'limit' => $perPage,
             ],
             'rdbmsError' => $rdbmsError,
         ]);

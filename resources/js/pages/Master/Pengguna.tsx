@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
-import { Edit3, Plus, Power, UserCog } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit3, Plus, Power, Search, UserCog } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +52,28 @@ export default function MasterPengguna({
 }: MasterPenggunaProps) {
     const [dialogOpen, setDialogOpen] = React.useState<boolean>(false);
     const [editingUser, setEditingUser] = React.useState<PenggunaSistem | null>(null);
+    const [cariUser, setCariUser] = React.useState<string>('');
+    const [limitUser, setLimitUser] = React.useState<number>(10);
+    const [pageUser, setPageUser] = React.useState<number>(1);
+
+    const filteredUsers = React.useMemo(() => {
+        const q = cariUser.trim().toLowerCase();
+        if (q === '') return daftarPengguna;
+        return daftarPengguna.filter(
+            (u) =>
+                u.nama_lengkap.toLowerCase().includes(q) ||
+                u.username.toLowerCase().includes(q) ||
+                u.email.toLowerCase().includes(q) ||
+                u.peran.toLowerCase().includes(q)
+        );
+    }, [daftarPengguna, cariUser]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / limitUser));
+    const currentPage = Math.min(pageUser, totalPages);
+    const paginatedUsers = React.useMemo(() => {
+        const start = (currentPage - 1) * limitUser;
+        return filteredUsers.slice(start, start + limitUser);
+    }, [filteredUsers, currentPage, limitUser]);
 
     const { data, setData, post, put, processing, errors, reset } = useForm<{
         nama_lengkap: string;
@@ -113,8 +135,8 @@ export default function MasterPengguna({
 
     return (
         <AuthenticatedLayout
-            title="Master Pengguna Sistem (5 Peran RBAC)"
-            subtitle="Pengelolaan akun panitia dengan hash Bcrypt pada kolom password_hash dan kontrol status_aktif"
+            title="Master Pengguna & Panitia"
+            subtitle="Pengelolaan akun pengurus DKM dan panitia operasional zakat berdasarkan peran tugas"
         >
             <Head title="Master Pengguna Sistem" />
 
@@ -131,7 +153,7 @@ export default function MasterPengguna({
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Hanya akun dengan <code className="font-mono text-xs">status_aktif = 1</code> yang dapat masuk dan menyuntikkan <code className="font-mono text-xs">@app_user</code>.
+                                Kelola hak akses peran serta status aktif akun panitia masjid.
                             </CardDescription>
                         </div>
 
@@ -141,19 +163,60 @@ export default function MasterPengguna({
                         </Button>
                     </CardHeader>
 
-                    <CardContent>
-                        {daftarPengguna.length === 0 ? (
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="relative flex-1 min-w-60 max-w-md">
+                                <Search
+                                    className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                    aria-hidden="true"
+                                />
+                                <Input
+                                    type="search"
+                                    placeholder="Cari nama, username, email, atau peran..."
+                                    value={cariUser}
+                                    onChange={(e) => {
+                                        setCariUser(e.target.value);
+                                        setPageUser(1);
+                                    }}
+                                    className="pl-9"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="limit-user-select" className="text-xs whitespace-nowrap">
+                                    Tampilkan:
+                                </Label>
+                                <Select
+                                    value={String(limitUser)}
+                                    onValueChange={(val) => {
+                                        setLimitUser(Number.parseInt(val, 10) || 10);
+                                        setPageUser(1);
+                                    }}
+                                >
+                                    <SelectTrigger id="limit-user-select" className="h-9 w-28 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10 baris</SelectItem>
+                                        <SelectItem value="25">25 baris</SelectItem>
+                                        <SelectItem value="50">50 baris</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {filteredUsers.length === 0 ? (
                             <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
-                                <p className="text-sm font-semibold">Belum ada data pengguna_sistem</p>
+                                <p className="text-sm font-semibold">Tidak ada akun panitia yang ditampilkan</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Tambahkan akun panitia baru dengan peran yang sesuai.
+                                    Tambahkan akun panitia baru atau sesuaikan kata kunci pencarian.
                                 </p>
                             </div>
                         ) : (
                             <>
-                                <div className="hidden md:block rounded-lg border">
+                                <div className="hidden md:block max-h-[520px] overflow-y-auto rounded-lg border">
                                     <Table>
-                                        <TableHeader>
+                                        <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                             <TableRow>
                                                 <TableHead>Nama Lengkap</TableHead>
                                                 <TableHead>Username</TableHead>
@@ -164,7 +227,7 @@ export default function MasterPengguna({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {daftarPengguna.map((row) => {
+                                            {paginatedUsers.map((row) => {
                                                 const aktif = Number(row.status_aktif) === 1 || row.status_aktif === true;
 
                                                 return (
@@ -219,7 +282,7 @@ export default function MasterPengguna({
                                 </div>
 
                                 <div className="grid gap-3 md:hidden">
-                                    {daftarPengguna.map((row) => {
+                                    {paginatedUsers.map((row) => {
                                         const aktif = Number(row.status_aktif) === 1 || row.status_aktif === true;
 
                                         return (
@@ -271,6 +334,35 @@ export default function MasterPengguna({
                                             </div>
                                         );
                                     })}
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
+                                    <span className="text-muted-foreground tabular-nums">
+                                        Menampilkan {paginatedUsers.length} dari {filteredUsers.length} akun (Halaman{' '}
+                                        {currentPage} / {totalPages})
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPage <= 1}
+                                            onClick={() => setPageUser((p) => Math.max(1, p - 1))}
+                                        >
+                                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                            <span>Sebelumnya</span>
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPage >= totalPages}
+                                            onClick={() => setPageUser((p) => Math.min(totalPages, p + 1))}
+                                        >
+                                            <span>Berikutnya</span>
+                                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </>
                         )}

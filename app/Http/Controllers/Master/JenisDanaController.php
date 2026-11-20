@@ -21,15 +21,16 @@ class JenisDanaController extends Controller
         // DILARANG menghitung/mengubah saldo di PHP. Hanya membaca struktur & saldo dari RDBMS.
         try {
             $daftarDana = DB::connection('mysql')->select(
-                'SELECT jd.id, jd.parent_id, p.nama_dana AS nama_induk, jd.kode_dana, jd.nama_dana,
+                "SELECT jd.id, jd.parent_id, p.nama_dana AS nama_induk, jd.kode_dana, jd.nama_dana,
                         jd.kategori_utama, jd.is_terikat, jd.saldo_tersedia, jd.saldo_beras_kg,
                         (SELECT COUNT(*) FROM jenis_dana c WHERE c.parent_id = jd.id) AS jumlah_sub_dana
                  FROM jenis_dana jd
                  LEFT JOIN jenis_dana p ON p.id = jd.parent_id
-                 ORDER BY jd.kategori_utama ASC, jd.kode_dana ASC'
+                 WHERE jd.kategori_utama = 'Zakat'
+                 ORDER BY jd.kode_dana ASC"
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal membaca tabel jenis_dana: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarDana = [];
         }
 
         return Inertia::render('Master/JenisDana', [
@@ -44,26 +45,22 @@ class JenisDanaController extends Controller
             'parent_id' => ['nullable', 'integer'],
             'kode_dana' => ['required', 'string', 'max:30'],
             'nama_dana' => ['required', 'string', 'max:120'],
-            'kategori_utama' => ['required', 'in:Zakat,Infak_Sedekah,Wakaf'],
-            'is_terikat' => ['required', 'boolean'],
         ]);
 
-        // DILARANG mengisi/mengubah saldo_tersedia atau saldo_beras_kg dari PHP; biarkan default RDBMS 0.
+        // Sistem dikhususkan murni untuk Zakat (kategori_utama = 'Zakat', is_terikat = 1).
         return RdbmsErrorHandler::run(function () use ($validated) {
             DB::connection('mysql')->statement(
                 'INSERT INTO jenis_dana (parent_id, kode_dana, nama_dana, kategori_utama, is_terikat, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
+                 VALUES (?, ?, ?, \'Zakat\', 1, NOW(), NOW())',
                 [
                     $validated['parent_id'] ?: null,
                     strtoupper(trim($validated['kode_dana'])),
                     trim($validated['nama_dana']),
-                    $validated['kategori_utama'],
-                    $validated['is_terikat'] ? 1 : 0,
                 ]
             );
 
             return redirect()->route('master.jenis-dana.index')
-                ->with('success', sprintf('Kantong dana %s (%s) berhasil ditambahkan.', $validated['nama_dana'], $validated['kode_dana']));
+                ->with('success', sprintf('Kantong dana Zakat %s (%s) berhasil ditambahkan.', $validated['nama_dana'], $validated['kode_dana']));
         });
     }
 
@@ -73,28 +70,24 @@ class JenisDanaController extends Controller
             'parent_id' => ['nullable', 'integer'],
             'kode_dana' => ['required', 'string', 'max:30'],
             'nama_dana' => ['required', 'string', 'max:120'],
-            'kategori_utama' => ['required', 'in:Zakat,Infak_Sedekah,Wakaf'],
-            'is_terikat' => ['required', 'boolean'],
         ]);
 
-        // Hanya memperbarui metadata kantong dana, TIDAK PERNAH menyentuh saldo_tersedia / saldo_beras_kg.
+        // Hanya memperbarui metadata kantong dana Zakat, TIDAK PERNAH menyentuh saldo_tersedia / saldo_beras_kg.
         return RdbmsErrorHandler::run(function () use ($validated, $id) {
             DB::connection('mysql')->statement(
                 'UPDATE jenis_dana
-                 SET parent_id = ?, kode_dana = ?, nama_dana = ?, kategori_utama = ?, is_terikat = ?, updated_at = NOW()
+                 SET parent_id = ?, kode_dana = ?, nama_dana = ?, kategori_utama = \'Zakat\', is_terikat = 1, updated_at = NOW()
                  WHERE id = ?',
                 [
                     $validated['parent_id'] ?: null,
                     strtoupper(trim($validated['kode_dana'])),
                     trim($validated['nama_dana']),
-                    $validated['kategori_utama'],
-                    $validated['is_terikat'] ? 1 : 0,
                     $id,
                 ]
             );
 
             return redirect()->route('master.jenis-dana.index')
-                ->with('success', sprintf('Metadata kantong dana %s berhasil diperbarui.', $validated['nama_dana']));
+                ->with('success', sprintf('Metadata kantong dana Zakat %s berhasil diperbarui.', $validated['nama_dana']));
         });
     }
 }

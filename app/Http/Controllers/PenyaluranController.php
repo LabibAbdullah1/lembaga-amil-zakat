@@ -24,7 +24,7 @@ class PenyaluranController extends Controller
         $rdbmsError = null;
 
         try {
-            $sql = 'SELECT pd.id, pd.no_bkk, pd.program_id, pp.kode_program, pp.nama_program,
+            $sql = "SELECT pd.id, pd.no_bkk, pd.program_id, pp.kode_program, pp.nama_program,
                            pd.jenis_dana_id, jd.kode_dana, jd.nama_dana, jd.kategori_utama,
                            pd.pembuat_id, ps1.nama_lengkap AS nama_pembuat,
                            pd.penyetuju_id, ps2.nama_lengkap AS nama_penyetuju,
@@ -36,7 +36,7 @@ class PenyaluranController extends Controller
                     INNER JOIN jenis_dana jd ON jd.id = pd.jenis_dana_id
                     INNER JOIN pengguna_sistem ps1 ON ps1.id = pd.pembuat_id
                     LEFT JOIN pengguna_sistem ps2 ON ps2.id = pd.penyetuju_id
-                    WHERE 1=1';
+                    WHERE jd.kategori_utama = 'Zakat'";
             $bindings = [];
 
             if (in_array($statusFilter, ['Draft', 'Disetujui', 'Disalurkan', 'Ditolak'], true)) {
@@ -55,8 +55,8 @@ class PenyaluranController extends Controller
             $sql .= ' ORDER BY pd.id DESC LIMIT 150';
 
             $daftarBkk = DB::connection('mysql')->select($sql, $bindings);
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal memuat daftar BKK penyaluran: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarBkk = [];
         }
 
         return Inertia::render('Penyaluran/Index', [
@@ -74,11 +74,12 @@ class PenyaluranController extends Controller
         $daftarProgram = [];
         $daftarDanaOperasional = [];
         $daftarMustahik = [];
+        $daftarAsnaf = [];
         $rdbmsError = null;
 
         try {
             $daftarProgram = DB::connection('mysql')->select(
-                'SELECT pp.id, pp.kode_program, pp.nama_program, pp.jenis_dana_id,
+                "SELECT pp.id, pp.kode_program, pp.nama_program, pp.jenis_dana_id,
                         jd.kode_dana, jd.nama_dana, jd.kategori_utama,
                         jd.saldo_tersedia, jd.saldo_beras_kg,
                         pp.periode_id, pr.tahun_hijriah, pr.tahun_masehi,
@@ -86,16 +87,18 @@ class PenyaluranController extends Controller
                  FROM program_penyaluran pp
                  INNER JOIN jenis_dana jd ON jd.id = pp.jenis_dana_id
                  INNER JOIN periode_ramadhan pr ON pr.id = pp.periode_id
-                 WHERE pp.status_program IN (\'Draft\', \'Berjalan\')
-                 ORDER BY pr.status_aktif DESC, pp.kode_program ASC'
+                 WHERE pp.status_program IN ('Draft', 'Berjalan')
+                   AND jd.kategori_utama = 'Zakat'
+                 ORDER BY pr.status_aktif DESC, pp.kode_program ASC"
             );
 
             $daftarDanaOperasional = DB::connection('mysql')->select(
-                'SELECT jd.id, jd.kode_dana, jd.nama_dana, jd.kategori_utama,
+                "SELECT jd.id, jd.kode_dana, jd.nama_dana, jd.kategori_utama,
                         jd.saldo_tersedia, jd.saldo_beras_kg
                  FROM jenis_dana jd
-                 WHERE NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
-                 ORDER BY jd.kategori_utama ASC, jd.kode_dana ASC'
+                 WHERE jd.kategori_utama = 'Zakat'
+                   AND NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
+                 ORDER BY jd.kode_dana ASC"
             );
 
             $daftarMustahik = DB::connection('mysql')->select(
@@ -105,17 +108,24 @@ class PenyaluranController extends Controller
                         fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
                  FROM mustahik m
                  INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
-                 ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, m.nama_lengkap ASC
-                 LIMIT 300'
+                 ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, ka.kode_asnaf ASC, m.nama_lengkap ASC
+                 LIMIT 2000'
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal memuat form pengajuan BKK: ' . $e->getMessage();
+
+            $daftarAsnaf = DB::connection('mysql')->select(
+                'SELECT id, kode_asnaf, nama_asnaf, deskripsi
+                 FROM kategori_asnaf
+                 ORDER BY kode_asnaf ASC'
+            );
+        } catch (Throwable) {
+            $daftarProgram = [];
         }
 
         return Inertia::render('Penyaluran/Create', [
             'daftarProgram' => $daftarProgram,
             'daftarDanaOperasional' => $daftarDanaOperasional,
             'daftarMustahik' => $daftarMustahik,
+            'daftarAsnaf' => $daftarAsnaf,
             'saranNoBkk' => $this->generateNoBkk(),
             'rdbmsError' => $rdbmsError,
         ]);
@@ -123,14 +133,43 @@ class PenyaluranController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'no_bkk' => ['nullable', 'string', 'max:40'],
-            'program_id' => ['required', 'integer'],
-            'jenis_dana_id' => ['required', 'integer'],
-            'mustahik_id' => ['required', 'integer'],
-            'nominal' => ['required', 'numeric', 'min:0'],
-            'beras_kg' => ['required', 'numeric', 'min:0'],
-        ]);
+        // Mendukung 2 mode input:
+        // 1. Mode Kolektif / Kelompok (daftar `penerima` array berisi beberapa mustahik sekaligus)
+        // 2. Mode Perorangan tunggal (`mustahik_id`, `nominal`, `beras_kg`)
+        if ($request->has('penerima') && is_array($request->input('penerima'))) {
+            $validated = $request->validate([
+                'no_bkk' => ['nullable', 'string', 'max:40'],
+                'program_id' => ['required', 'integer'],
+                'jenis_dana_id' => ['required', 'integer'],
+                'penerima' => ['required', 'array', 'min:1'],
+                'penerima.*.mustahik_id' => ['required', 'integer', 'distinct'],
+                'penerima.*.nominal' => ['required', 'numeric', 'min:0'],
+                'penerima.*.beras_kg' => ['required', 'numeric', 'min:0'],
+            ], [
+                'penerima.required' => 'Pilih minimal 1 mustahik penerima dalam pengajuan BKK.',
+                'penerima.min' => 'Pilih minimal 1 mustahik penerima dalam pengajuan BKK.',
+                'penerima.*.mustahik_id.distinct' => 'Terdapat duplikasi nama mustahik dalam daftar penerima yang dipilih.',
+            ]);
+
+            $daftarPenerima = array_values($validated['penerima']);
+        } else {
+            $validated = $request->validate([
+                'no_bkk' => ['nullable', 'string', 'max:40'],
+                'program_id' => ['required', 'integer'],
+                'jenis_dana_id' => ['required', 'integer'],
+                'mustahik_id' => ['required', 'integer'],
+                'nominal' => ['required', 'numeric', 'min:0'],
+                'beras_kg' => ['required', 'numeric', 'min:0'],
+            ]);
+
+            $daftarPenerima = [
+                [
+                    'mustahik_id' => (int) $validated['mustahik_id'],
+                    'nominal' => (float) $validated['nominal'],
+                    'beras_kg' => (float) $validated['beras_kg'],
+                ],
+            ];
+        }
 
         $noBkk = ! empty($validated['no_bkk'])
             ? strtoupper(trim($validated['no_bkk']))
@@ -138,10 +177,12 @@ class PenyaluranController extends Controller
 
         $pembuatId = (int) $request->user()->id;
 
-        // DILARANG menduplikasi validasi syariat di PHP!
-        // Seluruh cek kelayakan mustahik 365 hari, batas hak amil 12,5%, dan kesesuaian jenis_dana_id program vs BKK
-        // dilakukan oleh CALL sp_buat_pengajuan_penyaluran(...) dan trigger RDBMS.
-        return RdbmsErrorHandler::run(function () use ($validated, $noBkk, $pembuatId) {
+        // Eksekusi sekali jalan (Batch / Kolektif) menggunakan Stored Procedure RDBMS:
+        // 1. Penerima pertama membuat header BKK Draft melalui CALL sp_buat_pengajuan_penyaluran(...)
+        // 2. Penerima ke-2 s.d. ke-N ditambahkan berurutan melalui CALL sp_tambah_mustahik_bkk(...)
+        return RdbmsErrorHandler::run(function () use ($validated, $daftarPenerima, $noBkk, $pembuatId) {
+            $penerimaPertama = $daftarPenerima[0];
+
             DB::connection('mysql')->statement(
                 'CALL sp_buat_pengajuan_penyaluran(?, ?, ?, ?, ?, ?, ?)',
                 [
@@ -149,9 +190,9 @@ class PenyaluranController extends Controller
                     (int) $validated['program_id'],
                     (int) $validated['jenis_dana_id'],
                     $pembuatId,
-                    (int) $validated['mustahik_id'],
-                    (float) $validated['nominal'],
-                    (float) $validated['beras_kg'],
+                    (int) $penerimaPertama['mustahik_id'],
+                    (float) $penerimaPertama['nominal'],
+                    (float) $penerimaPertama['beras_kg'],
                 ]
             );
 
@@ -160,13 +201,33 @@ class PenyaluranController extends Controller
                 [$noBkk]
             );
 
-            if ($created && isset($created->id)) {
-                return redirect()->route('penyaluran.show', (int) $created->id)
-                    ->with('success', sprintf('Draf BKK %s beserta penerima pertama berhasil dibuat. Anda dapat menambahkan mustahik berikutnya.', $noBkk));
+            $penyaluranId = $created && isset($created->id) ? (int) $created->id : null;
+
+            if ($penyaluranId && count($daftarPenerima) > 1) {
+                $totalPenerima = count($daftarPenerima);
+                for ($i = 1; $i < $totalPenerima; $i++) {
+                    $item = $daftarPenerima[$i];
+                    DB::connection('mysql')->statement(
+                        'CALL sp_tambah_mustahik_bkk(?, ?, ?, ?)',
+                        [
+                            $penyaluranId,
+                            (int) $item['mustahik_id'],
+                            (float) $item['nominal'],
+                            (float) $item['beras_kg'],
+                        ]
+                    );
+                }
+            }
+
+            $jumlah = count($daftarPenerima);
+
+            if ($penyaluranId) {
+                return redirect()->route('penyaluran.show', $penyaluranId)
+                    ->with('success', sprintf('Draf BKK %s berhasil disusun sekali jalan untuk %d mustahik penerima.', $noBkk, $jumlah));
             }
 
             return redirect()->route('penyaluran.index')
-                ->with('success', sprintf('Draf BKK %s berhasil dibuat.', $noBkk));
+                ->with('success', sprintf('Draf BKK %s berhasil dibuat untuk %d mustahik.', $noBkk, $jumlah));
         });
     }
 
@@ -175,6 +236,7 @@ class PenyaluranController extends Controller
         $bkk = null;
         $detailMustahik = [];
         $daftarMustahik = [];
+        $daftarAsnaf = [];
         $rdbmsError = null;
 
         try {
@@ -219,50 +281,77 @@ class PenyaluranController extends Controller
             $daftarMustahik = DB::connection('mysql')->select(
                 'SELECT m.id, m.nik, m.nama_lengkap, m.kategori_asnaf_id,
                         ka.kode_asnaf, ka.nama_asnaf,
-                        m.status_verifikasi, fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
+                        m.alamat_rt_rw, m.status_verifikasi, fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
                  FROM mustahik m
                  INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
-                 ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, m.nama_lengkap ASC
-                 LIMIT 300'
+                 ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, ka.kode_asnaf ASC, m.nama_lengkap ASC
+                 LIMIT 2000'
+            );
+
+            $daftarAsnaf = DB::connection('mysql')->select(
+                'SELECT id, kode_asnaf, nama_asnaf, deskripsi
+                 FROM kategori_asnaf
+                 ORDER BY kode_asnaf ASC'
             );
         } catch (Throwable $e) {
             if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
                 throw $e;
             }
-            $rdbmsError = 'Gagal memuat detail BKK: ' . $e->getMessage();
+            $bkk = null;
         }
 
         return Inertia::render('Penyaluran/Show', [
             'bkk' => $bkk,
             'detailMustahik' => $detailMustahik,
             'daftarMustahik' => $daftarMustahik,
+            'daftarAsnaf' => $daftarAsnaf,
             'rdbmsError' => $rdbmsError,
         ]);
     }
 
     public function tambahMustahik(Request $request, int $penyaluranId): RedirectResponse
     {
-        $validated = $request->validate([
-            'mustahik_id' => ['required', 'integer'],
-            'nominal' => ['required', 'numeric', 'min:0'],
-            'beras_kg' => ['required', 'numeric', 'min:0'],
-        ]);
+        // Mendukung penambahan kolektif (array `penerima`) maupun satu per satu
+        if ($request->has('penerima') && is_array($request->input('penerima'))) {
+            $validated = $request->validate([
+                'penerima' => ['required', 'array', 'min:1'],
+                'penerima.*.mustahik_id' => ['required', 'integer', 'distinct'],
+                'penerima.*.nominal' => ['required', 'numeric', 'min:0'],
+                'penerima.*.beras_kg' => ['required', 'numeric', 'min:0'],
+            ]);
 
-        // Penambahan mustahik ke BKK Draft dilakukan melalui CALL sp_tambah_mustahik_bkk(?, ?, ?, ?).
-        // Duplikasi mustahik dalam 1 BKK, kelayakan 365 hari, dan batas hak amil 12,5% divalidasi oleh RDBMS.
-        return RdbmsErrorHandler::run(function () use ($penyaluranId, $validated) {
-            DB::connection('mysql')->statement(
-                'CALL sp_tambah_mustahik_bkk(?, ?, ?, ?)',
+            $daftarPenerima = array_values($validated['penerima']);
+        } else {
+            $validated = $request->validate([
+                'mustahik_id' => ['required', 'integer'],
+                'nominal' => ['required', 'numeric', 'min:0'],
+                'beras_kg' => ['required', 'numeric', 'min:0'],
+            ]);
+
+            $daftarPenerima = [
                 [
-                    $penyaluranId,
-                    (int) $validated['mustahik_id'],
-                    (float) $validated['nominal'],
-                    (float) $validated['beras_kg'],
-                ]
-            );
+                    'mustahik_id' => (int) $validated['mustahik_id'],
+                    'nominal' => (float) $validated['nominal'],
+                    'beras_kg' => (float) $validated['beras_kg'],
+                ],
+            ];
+        }
+
+        return RdbmsErrorHandler::run(function () use ($penyaluranId, $daftarPenerima) {
+            foreach ($daftarPenerima as $item) {
+                DB::connection('mysql')->statement(
+                    'CALL sp_tambah_mustahik_bkk(?, ?, ?, ?)',
+                    [
+                        $penyaluranId,
+                        (int) $item['mustahik_id'],
+                        (float) $item['nominal'],
+                        (float) $item['beras_kg'],
+                    ]
+                );
+            }
 
             return redirect()->route('penyaluran.show', $penyaluranId)
-                ->with('success', 'Penerima mustahik berhasil ditambahkan ke dalam BKK.');
+                ->with('success', sprintf('%d mustahik penerima berhasil ditambahkan sekaligus ke dalam BKK.', count($daftarPenerima)));
         });
     }
 
@@ -270,7 +359,6 @@ class PenyaluranController extends Controller
     {
         $penyetujuId = (int) $request->user()->id;
 
-        // Transisi state machine Draft -> Disetujui divalidasi oleh trg_before_update_penyaluran_dana di RDBMS.
         return RdbmsErrorHandler::run(function () use ($penyaluranId, $penyetujuId) {
             DB::connection('mysql')->statement(
                 'UPDATE penyaluran_dana
@@ -294,7 +382,6 @@ class PenyaluranController extends Controller
 
         $penyetujuId = (int) $request->user()->id;
 
-        // Transisi state machine Draft -> Ditolak divalidasi oleh trg_before_update_penyaluran_dana di RDBMS.
         return RdbmsErrorHandler::run(function () use ($penyaluranId, $penyetujuId, $validated) {
             DB::connection('mysql')->statement(
                 'UPDATE penyaluran_dana
@@ -312,8 +399,6 @@ class PenyaluranController extends Controller
     {
         $penyetujuId = (int) $request->user()->id;
 
-        // Pencairan dana Disetujui -> Disalurkan dengan FOR UPDATE pessimistic locking, pemotongan saldo jenis_dana,
-        // dan update status_serah_terima = 'Sudah' dieksekusi sepenuhnya oleh CALL sp_eksekusi_penyaluran(?, ?).
         return RdbmsErrorHandler::run(function () use ($penyaluranId, $penyetujuId) {
             DB::connection('mysql')->statement(
                 'CALL sp_eksekusi_penyaluran(?, ?)',
@@ -321,7 +406,7 @@ class PenyaluranController extends Controller
             );
 
             return redirect()->route('penyaluran.show', $penyaluranId)
-                ->with('success', 'Penyaluran BKK berhasil dieksekusi (Disalurkan). Saldo kantong dana telah dipotong dengan FOR UPDATE lock oleh RDBMS.');
+                ->with('success', 'Penyaluran BKK berhasil dicairkan (Disalurkan). Saldo kantong dana zakat telah diperbarui.');
         });
     }
 

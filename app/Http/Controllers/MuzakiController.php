@@ -46,8 +46,8 @@ class MuzakiController extends Controller
             $sql .= ' ORDER BY m.nama_lengkap ASC LIMIT 200';
 
             $daftarMuzaki = DB::connection('mysql')->select($sql, $bindings);
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal membaca data muzaki: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarMuzaki = [];
         }
 
         return Inertia::render('Muzaki/Index', [
@@ -156,6 +156,19 @@ class MuzakiController extends Controller
         ]);
 
         return RdbmsErrorHandler::run(function () use ($validated, $id) {
+            if ($validated['jenis_muzaki'] === 'Individu') {
+                $countRow = DB::connection('mysql')->selectOne(
+                    'SELECT COUNT(*) AS total FROM anggota_keluarga_muzaki WHERE muzaki_id = ?',
+                    [$id]
+                );
+
+                if (((int) ($countRow->total ?? 0)) > 0) {
+                    return back()->withErrors([
+                        'rdbms' => 'Muzaki ini masih memiliki daftar anggota keluarga/tanggungan terdaftar. Hapus anggota tanggungan terlebih dahulu sebelum mengubah jenis menjadi Individu.',
+                    ]);
+                }
+            }
+
             DB::connection('mysql')->statement(
                 'UPDATE muzaki
                  SET nik = ?, nama_lengkap = ?, no_hp = ?, alamat_rt_rw = ?, jenis_muzaki = ?, updated_at = NOW()
@@ -182,6 +195,25 @@ class MuzakiController extends Controller
         ]);
 
         return RdbmsErrorHandler::run(function () use ($validated, $muzakiId) {
+            $muzaki = DB::connection('mysql')->selectOne(
+                'SELECT id, nama_lengkap, jenis_muzaki FROM muzaki WHERE id = ? LIMIT 1',
+                [$muzakiId]
+            );
+
+            if (! $muzaki) {
+                abort(404, 'Data Muzaki tidak ditemukan.');
+            }
+
+            if ($muzaki->jenis_muzaki === 'Individu') {
+                return redirect()->route('muzaki.show', $muzakiId)
+                    ->withErrors([
+                        'rdbms' => sprintf(
+                            'Muzaki %s terdaftar sebagai Individu sehingga tidak dapat menambahkan anggota tanggungan. Silakan ubah jenis Muzaki menjadi KK Keluarga terlebih dahulu.',
+                            $muzaki->nama_lengkap
+                        ),
+                    ]);
+            }
+
             DB::connection('mysql')->statement(
                 'INSERT INTO anggota_keluarga_muzaki (muzaki_id, nama_anggota, status_hubungan)
                  VALUES (?, ?, ?)',
@@ -193,7 +225,7 @@ class MuzakiController extends Controller
             );
 
             return redirect()->route('muzaki.show', $muzakiId)
-                ->with('success', sprintf('Anggota keluarga %s berhasil ditambahkan. Hitungan jiwa otomatis diperbarui oleh fn_hitung_jiwa_muzaki.', $validated['nama_anggota']));
+                ->with('success', sprintf('Anggota keluarga %s berhasil ditambahkan.', $validated['nama_anggota']));
         });
     }
 

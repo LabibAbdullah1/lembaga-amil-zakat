@@ -216,12 +216,24 @@ export interface ViewRekapPenghimpunanMuzaki {
     [key: string]: unknown;
 }
 
+export interface HakAmilKategoriItem {
+    jenis_dana_id: number;
+    kode_dana: string;
+    nama_dana: string;
+    total_himpun_rupiah: number;
+    total_amil_rupiah: number;
+    kuota_maksimal_rupiah: number;
+    sisa_kuota_rupiah: number;
+    persentase_amil: number;
+}
+
 export interface SharedProps {
     auth: {
         user: PenggunaSistem | null;
     };
     periodeAktif?: PeriodeRamadhan | null;
     persentaseHakAmil?: number;
+    hakAmilPerKategori?: HakAmilKategoriItem[];
     flash?: {
         success?: string | null;
         error?: string | null;

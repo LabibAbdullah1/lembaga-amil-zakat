@@ -1,21 +1,39 @@
 import * as React from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
+    BookOpen,
+    Calculator,
+    CheckCircle2,
     Database,
     Eye,
+    HandCoins,
+    HeartHandshake,
     KeyRound,
     LayoutDashboard,
     RefreshCw,
+    Scale,
+    Search,
     ShieldCheck,
     Smartphone,
+    Users,
     Wallet,
     Wheat,
 } from 'lucide-react';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
+import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import {
     Table,
@@ -26,8 +44,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatBerasKg, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
+import { formatBerasKg, formatPercentage, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
 import type {
+    KategoriUtamaDana,
     SharedProps,
     ViewLaporanPenyaluranPublik,
     ViewRekapPenghimpunanMuzaki,
@@ -48,6 +67,17 @@ interface TransparansiProps {
     rdbmsError?: string | null;
 }
 
+const ASNAF_DESCRIPTIONS: Record<string, string> = {
+    'ASN-01': 'Fakir: Warga yang tidak memiliki harta dan tenaga untuk memenuhi kebutuhan pokok.',
+    'ASN-02': 'Miskin: Warga yang memiliki penghasilan namun belum mencukupi kebutuhan dasar keluarga.',
+    'ASN-03': 'Amil: Pengurus & panitia pengelola zakat (dibatasi syariat maksimal 12,50%).',
+    'ASN-04': 'Mualaf: Saudara baru yang membutuhkan penguatan iman dan dukungan sosial.',
+    'ASN-05': 'Riqab: Pembebasan dari belenggu perbudakan atau penindasan.',
+    'ASN-06': 'Gharimin: Warga yang terlilit utang demi memenuhi kebutuhan hidup yang halal.',
+    'ASN-07': 'Fisabilillah: Pejuang dakwah, pendidikan keislaman, dan kemaslahatan umat.',
+    'ASN-08': 'Ibnu Sabil: Musafir yang kehabisan bekal dalam perjalanan yang bukan maksiat.',
+};
+
 export default function TransparansiPublik({
     saldoDana = [],
     rekapAsnaf = [],
@@ -55,11 +85,22 @@ export default function TransparansiPublik({
     rekapMuzaki = [],
     rdbmsError,
 }: TransparansiProps) {
-    const { auth } = usePage<SharedProps>().props;
+    const { auth, periodeAktif } = usePage<SharedProps>().props;
     const isAuthenticated = Boolean(auth?.user);
 
     const [installPrompt, setInstallPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
     const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
+
+    // Filter Tabel Publik
+    const [cariDana, setCariDana] = React.useState<string>('');
+    const [filterKategoriDana, setFilterKategoriDana] = React.useState<string>('SEMUA');
+    const [cariPenyaluran, setCariPenyaluran] = React.useState<string>('');
+
+    // Simulasi Kalkulator Zakat Jamaah
+    const [jiwaKalkulator, setJiwaKalkulator] = React.useState<number>(4);
+    const [penghasilanBulanan, setPenghasilanBulanan] = React.useState<number>(10000000);
+    const tarifFitrah = Number(periodeAktif?.nominal_fitrah_per_jiwa ?? 45000);
+    const takaranBeras = Number(periodeAktif?.beras_per_jiwa_kg ?? 2.5);
 
     React.useEffect(() => {
         const handler = (event: Event) => {
@@ -84,43 +125,100 @@ export default function TransparansiPublik({
         });
     };
 
-    const totalSaldoPublik = React.useMemo(() => {
-        let uang = 0;
-        let beras = 0;
+    const agregatPublik = React.useMemo(() => {
+        let totalSaldoUang = 0;
+        let totalSaldoBeras = 0;
         for (const row of saldoDana) {
-            uang += Number.parseFloat(String(row.saldo_tersedia)) || 0;
-            beras += Number.parseFloat(String(row.saldo_beras_kg)) || 0;
+            totalSaldoUang += Number.parseFloat(String(row.saldo_tersedia)) || 0;
+            totalSaldoBeras += Number.parseFloat(String(row.saldo_beras_kg)) || 0;
         }
-        return { uang, beras };
-    }, [saldoDana]);
+
+        let totalSalurUang = 0;
+        let totalSalurBeras = 0;
+        let totalMustahikTerbantu = 0;
+        for (const asnaf of rekapAsnaf) {
+            totalSalurUang += Number.parseFloat(String(asnaf.total_nominal_disalurkan)) || 0;
+            totalSalurBeras += Number.parseFloat(String(asnaf.total_beras_disalurkan_kg)) || 0;
+            totalMustahikTerbantu += Number(asnaf.jumlah_mustahik_terbantu) || 0;
+        }
+
+        return {
+            totalSaldoUang,
+            totalSaldoBeras,
+            totalSalurUang,
+            totalSalurBeras,
+            totalMustahikTerbantu,
+        };
+    }, [saldoDana, rekapAsnaf]);
+
+    const filteredSaldo = React.useMemo(() => {
+        return saldoDana.filter((item) => {
+            const matchKategori =
+                filterKategoriDana === 'SEMUA' || item.kategori_utama === filterKategoriDana;
+            const q = cariDana.trim().toLowerCase();
+            const matchCari =
+                q === '' ||
+                item.kode_dana.toLowerCase().includes(q) ||
+                item.nama_dana.toLowerCase().includes(q) ||
+                (item.induk_dana ?? '').toLowerCase().includes(q);
+            return matchKategori && matchCari;
+        });
+    }, [saldoDana, filterKategoriDana, cariDana]);
+
+    const filteredPenyaluran = React.useMemo(() => {
+        const q = cariPenyaluran.trim().toLowerCase();
+        if (q === '') return laporanPenyaluranPublik;
+        return laporanPenyaluranPublik.filter(
+            (row) =>
+                row.no_bkk.toLowerCase().includes(q) ||
+                row.nama_program.toLowerCase().includes(q) ||
+                row.nama_asnaf.toLowerCase().includes(q) ||
+                row.nama_mustahik_masked.toLowerCase().includes(q)
+        );
+    }, [laporanPenyaluranPublik, cariPenyaluran]);
+
+    const getKategoriVariant = (
+        kategori: KategoriUtamaDana
+    ): 'success' | 'warning' | 'secondary' => {
+        if (kategori === 'Zakat') return 'success';
+        if (kategori === 'Infak_Sedekah') return 'warning';
+        return 'secondary';
+    };
 
     return (
         <div className="min-h-screen flex flex-col bg-background text-foreground">
-            <Head title="Portal Transparansi Publik ZIS & Zakat Fitrah Masjid" />
+            <Head title="Portal Transparansi & Akuntabilitas LAZ Masjid" />
             <OfflineBanner />
 
-            <header className="border-b bg-card">
-                <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+            {/* Navigasi Header Publik */}
+            <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur-xs">
+                <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
                     <div className="flex items-center gap-3">
                         <img
                             src="/icons/icon.svg"
-                            alt="Logo SI-LAZ Masjid"
+                            alt="Logo LAZ Masjid"
                             width={40}
                             height={40}
                             fetchPriority="high"
-                            className="h-10 w-10 rounded-lg"
+                            className="h-10 w-10 rounded-lg shadow-2xs"
                         />
                         <div>
-                            <h1 className="text-base font-bold tracking-tight sm:text-lg">
-                                Portal Transparansi Publik LAZ & Zakat Fitrah Masjid
-                            </h1>
+                            <p className="text-base font-bold tracking-tight">
+                                LAZ & Zakat Fitrah Masjid
+                            </p>
                             <p className="text-xs text-muted-foreground">
-                                Koneksi Read-Only Terisolasi: <code className="font-mono">zis_laporan</code> (Data NIK & Nama Mustahik Tersamar Otomatis)
+                                Portal Transparansi Dana Zakat Fitrah & Zakat Mal (8 Golongan Asnaf)
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <nav aria-label="Menu Portal Publik" className="flex flex-wrap items-center gap-2">
+                        <UserGuideDialog
+                            currentRole={auth?.user?.peran ?? 'Publik'}
+                            triggerVariant="outline"
+                            triggerLabel="Panduan Pengguna"
+                        />
+
                         {installPrompt && (
                             <Button
                                 type="button"
@@ -129,7 +227,7 @@ export default function TransparansiPublik({
                                 onClick={handleInstallPwa}
                             >
                                 <Smartphone className="h-4 w-4" aria-hidden="true" />
-                                <span>Install Aplikasi di HP</span>
+                                <span className="hidden sm:inline">Pasang di HP</span>
                             </Button>
                         )}
 
@@ -148,121 +246,322 @@ export default function TransparansiPublik({
                                 </Link>
                             </Button>
                         )}
-                    </div>
+                    </nav>
                 </div>
             </header>
 
-            <main className="mx-auto flex-1 w-full max-w-6xl px-4 py-6 sm:px-6 space-y-6">
-                <RdbmsAlert
-                    message={rdbmsError}
-                    title="Informasi Koneksi Read-Only zis_laporan"
-                />
+            <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-8 sm:px-6 space-y-10 laz-page-enter">
+                <RdbmsAlert message={rdbmsError} />
 
-                {/* Ringkasan Saldo & Jaminan Privasi VIEW RDBMS */}
-                <section className="grid gap-4 md:grid-cols-3">
-                    <Card>
+                {/* Hero & Kalkulator Simulasi Zakat Jamaah */}
+                <section className="grid gap-6 lg:grid-cols-12 lg:items-stretch">
+                    <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border bg-card p-6 sm:p-8 shadow-2xs space-y-6 laz-stagger-1">
+                        <div className="space-y-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="success">Amanah & Terbuka untuk Jamaah</Badge>
+                                {periodeAktif && (
+                                    <Badge variant="outline">
+                                        Ramadhan {periodeAktif.tahun_hijriah} H / {periodeAktif.tahun_masehi} M
+                                    </Badge>
+                                )}
+                            </div>
+
+                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl leading-tight">
+                                Laporan Terbuka Pengelolaan Zakat Fitrah & Zakat Mal Masjid (8 Golongan Asnaf)
+                            </h1>
+
+                            <p className="text-sm text-muted-foreground leading-relaxed sm:text-base">
+                                Setiap rupiah dan butir beras zakat yang ditunaikan muzaki dikelola secara murni sesuai ketentuan syariat, diverifikasi melalui survei kelayakan mustahik 8 asnaf, dan dilaporkan secara transparan dengan tetap melindungi kehormatan identitas penerima manfaat.
+                            </p>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-3 pt-2">
+                            <div className="rounded-xl border bg-accent/40 p-3.5 space-y-1">
+                                <div className="flex items-center gap-2 text-xs font-semibold text-accent-foreground">
+                                    <Scale className="h-4 w-4 text-primary" aria-hidden="true" />
+                                    <span>Murni Dana Zakat Wajib</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Dikhususkan untuk pengelolaan Zakat Fitrah (Uang & Beras) serta Zakat Mal tanpa dicampur dana non-zakat.
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border bg-accent/40 p-3.5 space-y-1">
+                                <div className="flex items-center gap-2 text-xs font-semibold text-accent-foreground">
+                                    <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
+                                    <span>Verifikasi 8 Asnaf</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Penerima zakat wajib melalui survei kelayakan lapangan dan batas hak amil maksimal 12,50%.
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border bg-accent/40 p-3.5 space-y-1">
+                                <div className="flex items-center gap-2 text-xs font-semibold text-accent-foreground">
+                                    <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+                                    <span>Privasi Mustahik Terjaga</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    NIK dan nama penerima manfaat disamarkan pada laporan publik.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Kalkulator Simulasi Zakat Fitrah & Zakat Profesi/Mal */}
+                    <Card className="lg:col-span-5 flex flex-col justify-between shadow-2xs laz-stagger-2">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Calculator className="h-5 w-5 text-primary" aria-hidden="true" />
+                                    <CardTitle className="text-base">
+                                        Kalkulator Simulasi Zakat Jamaah
+                                    </CardTitle>
+                                </div>
+                                <Badge variant="secondary">Hitung Cepat</Badge>
+                            </div>
+                            <CardDescription>
+                                Hitung estimasi Zakat Fitrah keluarga atau Zakat Penghasilan (2,5%) sebelum menyetorkan di loket masjid.
+                            </CardDescription>
+                        </CardHeader>
+
+                        <CardContent className="space-y-4">
+                            <Tabs defaultValue="fitrah">
+                                <TabsList className="w-full">
+                                    <TabsTrigger value="fitrah" className="flex-1">
+                                        Zakat Fitrah Keluarga
+                                    </TabsTrigger>
+                                    <TabsTrigger value="mal" className="flex-1">
+                                        Zakat Mal / Profesi (2,5%)
+                                    </TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="fitrah" className="space-y-3 pt-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="simulasi-jiwa">
+                                            Jumlah Anggota Keluarga Wajib Fitrah (Jiwa)
+                                        </Label>
+                                        <Input
+                                            id="simulasi-jiwa"
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={1}
+                                            max={30}
+                                            value={jiwaKalkulator}
+                                            onChange={(e) => {
+                                                const v = Number.parseInt(e.target.value, 10);
+                                                setJiwaKalkulator(Number.isNaN(v) || v < 1 ? 1 : v);
+                                            }}
+                                            className="tabular-nums font-semibold"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 pt-1">
+                                        <div className="rounded-lg border bg-accent/50 p-3">
+                                            <p className="text-xs text-muted-foreground">Setoran Tunai / QRIS</p>
+                                            <p className="mt-1 text-base font-bold tabular-nums text-primary">
+                                                {formatRupiah(jiwaKalkulator * tarifFitrah)}
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground tabular-nums">
+                                                @ {formatRupiah(tarifFitrah)} / jiwa
+                                            </p>
+                                        </div>
+                                        <div className="rounded-lg border bg-accent/50 p-3">
+                                            <p className="text-xs text-muted-foreground">Setoran Beras Fitrah</p>
+                                            <p className="mt-1 text-base font-bold tabular-nums text-foreground">
+                                                {formatBerasKg(jiwaKalkulator * takaranBeras)}
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground tabular-nums">
+                                                @ {formatBerasKg(takaranBeras)} / jiwa
+                                            </p>
+                                        </div>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="mal" className="space-y-3 pt-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="simulasi-penghasilan">
+                                            Penghasilan / Harta Bersih (Rp)
+                                        </Label>
+                                        <Input
+                                            id="simulasi-penghasilan"
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={0}
+                                            step={100000}
+                                            value={penghasilanBulanan}
+                                            onChange={(e) => {
+                                                const v = Number.parseFloat(e.target.value);
+                                                setPenghasilanBulanan(Number.isNaN(v) || v < 0 ? 0 : v);
+                                            }}
+                                            className="tabular-nums font-semibold"
+                                        />
+                                    </div>
+
+                                    <div className="rounded-lg border bg-accent/50 p-3.5 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Kewajiban Zakat (Tarif Syariat 2,5%)
+                                            </p>
+                                            <p className="mt-0.5 text-lg font-bold tabular-nums text-primary">
+                                                {formatRupiah(Math.round(penghasilanBulanan * 0.025))}
+                                            </p>
+                                        </div>
+                                        <Badge variant="success" className="tabular-nums">
+                                            2,50%
+                                        </Badge>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
+                </section>
+
+                {/* 4 Kartu Ringkasan Utama Posisi Saldo & Realisasi Penyaluran */}
+                <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 laz-stagger-2">
+                    <Card className="laz-card-lift">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardDescription>Total Saldo Dana Umat Tersedia</CardDescription>
+                                <CardDescription>Saldo Dana Umat Tersedia</CardDescription>
                                 <Wallet className="h-4 w-4 text-primary" aria-hidden="true" />
                             </div>
                             <CardTitle className="text-xl font-bold tabular-nums text-primary">
-                                {formatRupiah(totalSaldoPublik.uang)}
+                                {formatRupiah(agregatPublik.totalSaldoUang)}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-xs text-muted-foreground">
-                                Akumulasi dari {saldoDana.length} kantong dana pada <code className="font-mono">v_saldo_jenis_dana</code>.
+                                Saldo kas aktif dari {saldoDana.length} kantong dana ZIS & Wakaf.
                             </p>
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="laz-card-lift">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardDescription>Total Saldo Beras Zakat Fitrah</CardDescription>
+                                <CardDescription>Persediaan Beras Fitrah</CardDescription>
                                 <Wheat className="h-4 w-4 text-amber-600" aria-hidden="true" />
                             </div>
                             <CardTitle className="text-xl font-bold tabular-nums">
-                                {formatBerasKg(totalSaldoPublik.beras)}
+                                {formatBerasKg(agregatPublik.totalSaldoBeras)}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-xs text-muted-foreground">
-                                Dipisahkan dari saldo uang dan dijaga anti-negatif oleh RDBMS.
+                                Saldo beras zakat fitrah siap salur di gudang panitia masjid.
                             </p>
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="laz-card-lift">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardDescription>Perlindungan Privasi Mustahik</CardDescription>
-                                <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+                                <CardDescription>Total Dana Tersalurkan</CardDescription>
+                                <HandCoins className="h-4 w-4 text-primary" aria-hidden="true" />
                             </div>
-                            <CardTitle className="text-base font-bold">
-                                Data Masking Level RDBMS
+                            <CardTitle className="text-xl font-bold tabular-nums">
+                                {formatRupiah(agregatPublik.totalSalurUang)}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-xs text-muted-foreground tabular-nums">
+                                Ditambah beras tersalurkan: {formatBerasKg(agregatPublik.totalSalurBeras)}
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="laz-card-lift">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardDescription>Total Mustahik Terbantu</CardDescription>
+                                <HeartHandshake className="h-4 w-4 text-primary" aria-hidden="true" />
+                            </div>
+                            <CardTitle className="text-xl font-bold tabular-nums">
+                                {agregatPublik.totalMustahikTerbantu} Jiwa
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-xs text-muted-foreground">
-                                Akun <code className="font-mono">zis_laporan</code> diblokir dari 14 tabel asli (<code className="font-mono">ERROR 1142</code>) dan hanya dapat membaca 4 VIEW publik.
+                                Penerima manfaat terverifikasi di seluruh golongan 8 asnaf.
                             </p>
                         </CardContent>
                     </Card>
                 </section>
 
-                <Card>
+                {/* Laporan Utama 4 Tab Transparansi Publik */}
+                <Card className="shadow-2xs laz-stagger-3">
                     <CardHeader className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                         <div>
                             <div className="flex items-center gap-2">
                                 <Database className="h-5 w-5 text-primary" aria-hidden="true" />
                                 <CardTitle className="text-lg">
-                                    Laporan Transparansi Dana Zakat, Infak, Sedekah & Wakaf
+                                    Rincian Posisi Saldo & Realisasi Penyaluran Dana Umat
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Hanya menampilkan penyaluran yang telah berstatus final (<code className="font-mono text-xs">Disalurkan</code>) dengan identitas mustahik tersamar.
+                                Menampilkan posisi saldo kantong dana terkini serta rincian penyaluran dana yang telah diserahterimakan kepada mustahik.
                             </CardDescription>
                         </div>
 
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isRefreshing}
-                            onClick={handleRefreshData}
-                        >
-                            <RefreshCw
-                                className={isRefreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-                                aria-hidden="true"
-                            />
-                            <span>{isRefreshing ? 'Memuat...' : 'Segarkan Data'}</span>
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={isRefreshing}
+                                onClick={handleRefreshData}
+                            >
+                                <RefreshCw
+                                    className={isRefreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
+                                    aria-hidden="true"
+                                />
+                                <span>{isRefreshing ? 'Memuat...' : 'Segarkan Data'}</span>
+                            </Button>
+                        </div>
                     </CardHeader>
 
                     <CardContent>
                         <Tabs defaultValue="saldo">
                             <TabsList className="flex flex-wrap h-auto gap-1">
                                 <TabsTrigger value="saldo">
-                                    1. Saldo Kantong Dana (v_saldo_jenis_dana)
+                                    Posisi Saldo Dana ({saldoDana.length})
                                 </TabsTrigger>
                                 <TabsTrigger value="asnaf">
-                                    2. Rekap 8 Asnaf (v_rekap_penyaluran_asnaf)
+                                    Penyaluran per 8 Asnaf ({rekapAsnaf.length})
                                 </TabsTrigger>
                                 <TabsTrigger value="penyaluran">
-                                    3. Realisasi Penyaluran (v_laporan_penyaluran_publik)
+                                    Rincian Penyaluran ({laporanPenyaluranPublik.length})
                                 </TabsTrigger>
                                 <TabsTrigger value="muzaki">
-                                    4. Rekap Muzaki (v_rekap_penghimpunan_muzaki)
+                                    Partisipasi Muzaki ({rekapMuzaki.length})
                                 </TabsTrigger>
                             </TabsList>
 
-                            {/* TAB 1: v_saldo_jenis_dana */}
-                            <TabsContent value="saldo" className="pt-4">
-                                {saldoDana.length === 0 ? (
+                            {/* TAB 1: POSISI SALDO KANTONG DANA ZAKAT */}
+                            <TabsContent value="saldo" className="space-y-4 pt-4">
+                                <div className="max-w-lg">
+                                    <Label htmlFor="cari-dana-publik" className="sr-only">
+                                        Cari Kantong Dana Zakat
+                                    </Label>
+                                    <div className="relative">
+                                        <Search
+                                            className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                            aria-hidden="true"
+                                        />
+                                        <Input
+                                            id="cari-dana-publik"
+                                            type="search"
+                                            placeholder="Cari nama atau kode kantong dana zakat..."
+                                            value={cariDana}
+                                            onChange={(e) => setCariDana(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                </div>
+
+                                {filteredSaldo.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
-                                        VIEW v_saldo_jenis_dana belum mengembalikan baris data.
+                                        Belum ada data saldo kantong dana yang tercatat untuk filter ini.
                                     </div>
                                 ) : (
                                     <>
@@ -272,14 +571,14 @@ export default function TransparansiPublik({
                                                     <TableRow>
                                                         <TableHead>Kode Dana</TableHead>
                                                         <TableHead>Nama Kantong Dana</TableHead>
-                                                        <TableHead>Induk Dana</TableHead>
-                                                        <TableHead>Kategori</TableHead>
+                                                        <TableHead>Kelompok Induk</TableHead>
+                                                        <TableHead>Kategori Syariat</TableHead>
                                                         <TableHead className="text-right">Saldo Uang Tersedia</TableHead>
                                                         <TableHead className="text-right">Saldo Beras Fitrah</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {saldoDana.map((row) => (
+                                                    {filteredSaldo.map((row) => (
                                                         <TableRow key={row.kode_dana}>
                                                             <TableCell className="font-mono text-xs font-semibold">
                                                                 {row.kode_dana}
@@ -291,7 +590,7 @@ export default function TransparansiPublik({
                                                                 {row.induk_dana || 'Induk Utama'}
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Badge variant="outline">
+                                                                <Badge variant={getKategoriVariant(row.kategori_utama)}>
                                                                     {row.kategori_utama.replace('_', ' ')}
                                                                 </Badge>
                                                             </TableCell>
@@ -308,16 +607,16 @@ export default function TransparansiPublik({
                                         </div>
 
                                         <div className="grid gap-3 md:hidden">
-                                            {saldoDana.map((row) => (
+                                            {filteredSaldo.map((row) => (
                                                 <div
                                                     key={row.kode_dana}
-                                                    className="rounded-lg border bg-card p-4 space-y-2"
+                                                    className="rounded-lg border bg-card p-4 space-y-2 laz-card-lift"
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <span className="font-mono text-xs font-bold">
                                                             {row.kode_dana}
                                                         </span>
-                                                        <Badge variant="outline">
+                                                        <Badge variant={getKategoriVariant(row.kategori_utama)}>
                                                             {row.kategori_utama.replace('_', ' ')}
                                                         </Badge>
                                                     </div>
@@ -343,55 +642,107 @@ export default function TransparansiPublik({
                                 )}
                             </TabsContent>
 
-                            {/* TAB 2: v_rekap_penyaluran_asnaf */}
-                            <TabsContent value="asnaf" className="pt-4">
+                            {/* TAB 2: DISTRIBUSI 8 GOLONGAN ASNAF */}
+                            <TabsContent value="asnaf" className="space-y-4 pt-4">
                                 {rekapAsnaf.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
-                                        VIEW v_rekap_penyaluran_asnaf belum mengembalikan baris data.
+                                        Belum ada data rekapitulasi penyaluran per golongan asnaf pada periode ini.
                                     </div>
                                 ) : (
-                                    <div className="rounded-lg border">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Kode Asnaf</TableHead>
-                                                    <TableHead>Golongan Mustahik (8 Asnaf)</TableHead>
-                                                    <TableHead className="text-right">Mustahik Terbantu</TableHead>
-                                                    <TableHead className="text-right">Total Uang Disalurkan</TableHead>
-                                                    <TableHead className="text-right">Total Beras Disalurkan</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {rekapAsnaf.map((row) => (
-                                                    <TableRow key={row.kode_asnaf}>
-                                                        <TableCell className="font-mono text-xs font-bold">
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                        {rekapAsnaf.map((row) => {
+                                            const nominal =
+                                                Number.parseFloat(String(row.total_nominal_disalurkan)) || 0;
+                                            const porsi =
+                                                agregatPublik.totalSalurUang > 0
+                                                    ? (nominal / agregatPublik.totalSalurUang) * 100
+                                                    : 0;
+
+                                            return (
+                                                <div
+                                                    key={row.kode_asnaf}
+                                                    className="rounded-xl border bg-card p-4 space-y-3 laz-card-lift"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <Badge variant="outline" className="font-mono">
                                                             {row.kode_asnaf}
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            {row.nama_asnaf}
-                                                        </TableCell>
-                                                        <TableCell className="text-right tabular-nums">
+                                                        </Badge>
+                                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground tabular-nums">
+                                                            <Users className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                                                             {row.jumlah_mustahik_terbantu} jiwa
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-bold tabular-nums text-primary">
-                                                            {formatRupiah(row.total_nominal_disalurkan)}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-bold tabular-nums">
-                                                            {formatBerasKg(row.total_beras_disalurkan_kg)}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <p className="text-base font-bold">{row.nama_asnaf}</p>
+                                                        <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
+                                                            {ASNAF_DESCRIPTIONS[row.kode_asnaf] ??
+                                                                'Golongan penerima manfaat zakat sesuai ketentuan syariat.'}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="space-y-1.5 pt-1">
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-muted-foreground">Uang Tersalurkan</span>
+                                                            <span className="font-bold tabular-nums text-primary">
+                                                                {formatRupiah(row.total_nominal_disalurkan)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-muted-foreground">Beras Fitrah</span>
+                                                            <span className="font-semibold tabular-nums">
+                                                                {formatBerasKg(row.total_beras_disalurkan_kg)}
+                                                            </span>
+                                                        </div>
+                                                        <div
+                                                            role="progressbar"
+                                                            aria-valuenow={Math.round(porsi)}
+                                                            aria-valuemin={0}
+                                                            aria-valuemax={100}
+                                                            aria-label={`Proporsi penyaluran ${row.nama_asnaf}`}
+                                                            className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                                                        >
+                                                            <div
+                                                                className="h-full bg-primary transition-all"
+                                                                style={{ width: `${Math.min(100, porsi)}%` }}
+                                                            />
+                                                        </div>
+                                                        <p className="text-right text-[11px] text-muted-foreground tabular-nums">
+                                                            Porsi: {formatPercentage(porsi)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </TabsContent>
 
-                            {/* TAB 3: v_laporan_penyaluran_publik */}
-                            <TabsContent value="penyaluran" className="pt-4">
-                                {laporanPenyaluranPublik.length === 0 ? (
+                            {/* TAB 3: RINCIAN PENYALURAN PUBLIK (MASKED) */}
+                            <TabsContent value="penyaluran" className="space-y-4 pt-4">
+                                <div className="max-w-md">
+                                    <Label htmlFor="cari-penyaluran-publik" className="sr-only">
+                                        Cari No. BKK, Program, atau Asnaf
+                                    </Label>
+                                    <div className="relative">
+                                        <Search
+                                            className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                            aria-hidden="true"
+                                        />
+                                        <Input
+                                            id="cari-penyaluran-publik"
+                                            type="search"
+                                            placeholder="Cari No. BKK, nama program, atau golongan asnaf..."
+                                            value={cariPenyaluran}
+                                            onChange={(e) => setCariPenyaluran(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                </div>
+
+                                {filteredPenyaluran.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
-                                        VIEW v_laporan_penyaluran_publik belum memiliki rincian BKK berstatus Disalurkan.
+                                        Belum ada rincian penyaluran dana yang dipublikasikan untuk pencarian ini.
                                     </div>
                                 ) : (
                                     <>
@@ -405,7 +756,7 @@ export default function TransparansiPublik({
                                                         <TableHead>
                                                             <span className="inline-flex items-center gap-1">
                                                                 <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                Mustahik & NIK (Masked)
+                                                                Mustahik & NIK (Tersamar)
                                                             </span>
                                                         </TableHead>
                                                         <TableHead className="text-right">Uang Diterima</TableHead>
@@ -413,7 +764,7 @@ export default function TransparansiPublik({
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {laporanPenyaluranPublik.map((row, idx) => (
+                                                    {filteredPenyaluran.map((row, idx) => (
                                                         <TableRow key={`${row.no_bkk}-${idx}`}>
                                                             <TableCell>
                                                                 <p className="font-mono text-xs font-bold">
@@ -457,10 +808,10 @@ export default function TransparansiPublik({
                                         </div>
 
                                         <div className="grid gap-3 md:hidden">
-                                            {laporanPenyaluranPublik.map((row, idx) => (
+                                            {filteredPenyaluran.map((row, idx) => (
                                                 <div
                                                     key={`${row.no_bkk}-${idx}`}
-                                                    className="rounded-lg border bg-card p-4 space-y-2"
+                                                    className="rounded-lg border bg-card p-4 space-y-2 laz-card-lift"
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <span className="font-mono text-xs font-bold">
@@ -470,7 +821,7 @@ export default function TransparansiPublik({
                                                     </div>
                                                     <p className="text-sm font-bold">{row.nama_program}</p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Penerima (Masked): {row.nama_mustahik_masked} ({row.nik_mustahik_masked})
+                                                        Penerima: {row.nama_mustahik_masked} ({row.nik_mustahik_masked})
                                                     </p>
                                                     <Separator />
                                                     <div className="flex items-center justify-between text-xs pt-1">
@@ -489,11 +840,11 @@ export default function TransparansiPublik({
                                 )}
                             </TabsContent>
 
-                            {/* TAB 4: v_rekap_penghimpunan_muzaki */}
+                            {/* TAB 4: REKAP PARTISIPASI MUZAKI */}
                             <TabsContent value="muzaki" className="pt-4">
                                 {rekapMuzaki.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
-                                        VIEW v_rekap_penghimpunan_muzaki belum mengembalikan baris data.
+                                        Belum ada data rekapitulasi partisipasi muzaki pada periode ini.
                                     </div>
                                 ) : (
                                     <div className="rounded-lg border">
@@ -501,7 +852,7 @@ export default function TransparansiPublik({
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Muzaki & NIK Tersamar</TableHead>
-                                                    <TableHead>Periode</TableHead>
+                                                    <TableHead>Periode Ramadhan</TableHead>
                                                     <TableHead className="text-right">Frekuensi</TableHead>
                                                     <TableHead className="text-right">Total Donasi Uang</TableHead>
                                                     <TableHead className="text-right">Total Beras Fitrah</TableHead>
@@ -515,7 +866,7 @@ export default function TransparansiPublik({
                                                                 {String(
                                                                     row.nama_muzaki_masked ??
                                                                         row.nama_lengkap ??
-                                                                        'Muzaki'
+                                                                        'Hamba Allah'
                                                                 )}
                                                             </p>
                                                             <p className="font-mono text-xs text-muted-foreground">
@@ -541,14 +892,10 @@ export default function TransparansiPublik({
                                                             x
                                                         </TableCell>
                                                         <TableCell className="text-right font-bold tabular-nums text-primary">
-                                                            {formatRupiah(
-                                                                Number(row.total_nominal ?? 0)
-                                                            )}
+                                                            {formatRupiah(Number(row.total_nominal ?? 0))}
                                                         </TableCell>
                                                         <TableCell className="text-right font-bold tabular-nums">
-                                                            {formatBerasKg(
-                                                                Number(row.total_beras_kg ?? 0)
-                                                            )}
+                                                            {formatBerasKg(Number(row.total_beras_kg ?? 0))}
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -560,12 +907,57 @@ export default function TransparansiPublik({
                         </Tabs>
                     </CardContent>
                 </Card>
+
+                {/* Bagian Edukasi & Panduan Singkat 8 Golongan Asnaf */}
+                <section className="rounded-2xl border bg-card p-6 sm:p-8 shadow-2xs space-y-5">
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <BookOpen className="h-5 w-5 text-primary" aria-hidden="true" />
+                                <h2 className="text-lg font-bold">
+                                    Mengenal 8 Golongan Penerima Zakat (Asnaf) & Tata Kelola Amanah
+                                </h2>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Berdasarkan QS. At-Taubah ayat 60, penyaluran dana zakat di masjid ini dikawal ketat untuk 8 golongan mustahik berikut:
+                            </p>
+                        </div>
+
+                        <UserGuideDialog
+                            currentRole={auth?.user?.peran ?? 'Publik'}
+                            triggerVariant="default"
+                            triggerLabel="Baca Panduan Lengkap"
+                        />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {Object.entries(ASNAF_DESCRIPTIONS).map(([kode, desc]) => {
+                            const [nama, penjelasan] = desc.split(': ');
+                            return (
+                                <div
+                                    key={kode}
+                                    className="rounded-xl border bg-muted/20 p-3.5 space-y-1.5 laz-card-lift"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-bold text-foreground">{nama}</span>
+                                        <Badge variant="outline" className="font-mono text-[11px]">
+                                            {kode}
+                                        </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        {penjelasan}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
             </main>
 
-            <footer className="border-t bg-card py-4">
-                <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
-                    <span>Portal Transparansi Publik SI-LAZ & Zakat Fitrah Masjid</span>
-                    <span>Diakses secara eksklusif melalui koneksi mysql_laporan (zis_laporan)</span>
+            <footer className="border-t bg-card py-5">
+                <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
+                    <span>Portal Transparansi Publik LAZ & Zakat Fitrah Masjid</span>
+                    <span>Laporan Akuntabilitas Dana Zakat, Infak, Sedekah & Wakaf</span>
                 </div>
             </footer>
         </div>

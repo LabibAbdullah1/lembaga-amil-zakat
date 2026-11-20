@@ -24,8 +24,8 @@ class PeriodeRamadhanController extends Controller
                  FROM periode_ramadhan
                  ORDER BY tahun_masehi DESC, id DESC'
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal membaca tabel periode_ramadhan: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarPeriode = [];
         }
 
         return Inertia::render('Master/Periode', [

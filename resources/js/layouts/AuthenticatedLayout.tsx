@@ -22,6 +22,8 @@ import {
 import { toast } from 'sonner';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
+import { RoleGuideBanner } from '@/components/zis/RoleGuideBanner';
+import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -154,7 +156,7 @@ const NAV_ITEMS: NavItemConfig[] = [
     },
     {
         key: 'audit',
-        label: 'Log Audit JSON',
+        label: 'Riwayat Audit',
         group: 'Pengawasan',
         href: '/audit',
         icon: History,
@@ -175,7 +177,7 @@ export default function AuthenticatedLayout({
     children,
 }: AuthenticatedLayoutProps) {
     const page = usePage<SharedProps>();
-    const { auth, periodeAktif, persentaseHakAmil = 0, flash, errors } = page.props;
+    const { auth, periodeAktif, persentaseHakAmil = 0, hakAmilPerKategori = [], flash, errors } = page.props;
     const currentUrl = page.url;
     const user = auth?.user;
 
@@ -238,12 +240,12 @@ export default function AuthenticatedLayout({
         <div className="min-h-screen flex flex-col bg-background text-foreground">
             <OfflineBanner />
 
-            <div className="flex flex-1">
-                {/* Sidebar Navigasi Desktop */}
+            <div className="flex flex-1 items-start">
+                {/* Sidebar Navigasi Desktop (Sticky setinggi layar agar tidak ikut scroll bersama konten) */}
                 <aside
                     aria-label="Navigasi Utama"
                     className={cn(
-                        'hidden md:flex md:flex-col border-r bg-card transition-all duration-150 shrink-0',
+                        'hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col border-r bg-card transition-all duration-150 shrink-0',
                         sidebarCollapsed ? 'md:w-20' : 'md:w-64'
                     )}
                 >
@@ -353,10 +355,10 @@ export default function AuthenticatedLayout({
                             <div className="rounded-lg bg-muted/60 p-3 space-y-2">
                                 <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-semibold truncate">{user?.nama_lengkap}</span>
-                                    <Badge variant="success">{user?.peran}</Badge>
+                                    <Badge variant="success">{user?.peran.replace('_', ' ')}</Badge>
                                 </div>
-                                <p className="font-mono text-[11px] text-muted-foreground truncate">
-                                    @app_user: {user?.username} ({user?.peran})
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                    {user?.email}
                                 </p>
                                 <Button
                                     type="button"
@@ -422,22 +424,82 @@ export default function AuthenticatedLayout({
                                     <Badge variant="warning">Belum Ada Periode Ramadhan Aktif</Badge>
                                 )}
 
-                                <div className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs">
-                                    <Scale className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
-                                    <span className="text-muted-foreground hidden sm:inline">Hak Amil:</span>
-                                    <Badge
-                                        variant={
-                                            isAmilCritical
-                                                ? 'destructive'
-                                                : isAmilWarning
-                                                  ? 'warning'
-                                                  : 'success'
-                                        }
-                                        className="tabular-nums"
-                                    >
-                                        {formatPercentage(amilNumeric)} / 12,50%
-                                    </Badge>
-                                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button
+                                            type="button"
+                                            title="Klik untuk melihat rincian Hak Amil (Maks 12,50%) per Kategori Zakat"
+                                            className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
+                                        >
+                                            <Scale className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
+                                            <span className="text-muted-foreground hidden sm:inline">
+                                                Hak Amil (Per Kategori):
+                                            </span>
+                                            <Badge
+                                                variant={
+                                                    isAmilCritical
+                                                        ? 'destructive'
+                                                        : isAmilWarning
+                                                          ? 'warning'
+                                                          : 'success'
+                                                }
+                                                className="tabular-nums"
+                                            >
+                                                {formatPercentage(amilNumeric)} / 12,50%
+                                            </Badge>
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-80 p-3 space-y-2.5">
+                                        <div>
+                                            <p className="text-xs font-bold text-foreground">
+                                                Realisasi Hak Amil (ASN-03) per Kategori Zakat
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Batas maksimal 12,50% dihitung terpisah pada setiap kategori dana zakat.
+                                            </p>
+                                        </div>
+                                        <DropdownMenuSeparator />
+                                        {hakAmilPerKategori.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground py-1">
+                                                Belum ada data kategori zakat pada periode aktif.
+                                            </p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {hakAmilPerKategori.map((kat) => {
+                                                    const p = Number(kat.persentase_amil) || 0;
+                                                    return (
+                                                        <div
+                                                            key={kat.jenis_dana_id}
+                                                            className="rounded-lg border bg-muted/30 p-2 text-xs space-y-1"
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="font-semibold truncate">
+                                                                    [{kat.kode_dana}] {kat.nama_dana}
+                                                                </span>
+                                                                <Badge
+                                                                    variant={
+                                                                        p >= 12.5
+                                                                            ? 'destructive'
+                                                                            : p >= 10
+                                                                              ? 'warning'
+                                                                              : 'success'
+                                                                    }
+                                                                    className="tabular-nums text-[10px]"
+                                                                >
+                                                                    {formatPercentage(p)} / 12,50%
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+                                                                <span>Terpakai: {formatRupiah(kat.total_amil_rupiah)}</span>
+                                                                <span>Sisa Kuota: {formatRupiah(kat.sisa_kuota_rupiah)}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
 
                                 {installPrompt && (
                                     <Button
@@ -450,6 +512,12 @@ export default function AuthenticatedLayout({
                                         <span className="hidden sm:inline">Install PWA</span>
                                     </Button>
                                 )}
+
+                                <UserGuideDialog
+                                    currentRole={user?.peran ?? 'Admin'}
+                                    triggerVariant="outline"
+                                    triggerLabel="Panduan"
+                                />
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -484,7 +552,8 @@ export default function AuthenticatedLayout({
                         </div>
                     </header>
 
-                    <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-6 sm:px-6">
+                    <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-6 sm:px-6 space-y-6 laz-page-enter">
+                        {user && <RoleGuideBanner role={user.peran} moduleHint={subtitle} />}
                         <RdbmsAlert message={errors?.rdbms} />
                         {children}
                     </main>
@@ -610,6 +679,11 @@ export default function AuthenticatedLayout({
                         </div>
 
                         <div className="space-y-3 pt-4 border-t">
+                            <UserGuideDialog
+                                currentRole={user?.peran ?? 'Admin'}
+                                triggerVariant="secondary"
+                                triggerLabel="Buka Panduan Peran Tugas"
+                            />
                             {installPrompt && (
                                 <Button
                                     type="button"

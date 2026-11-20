@@ -108,6 +108,41 @@
     }
 }
 
+@keyframes lazFadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.laz-page-enter {
+    animation: lazFadeInUp 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.laz-stagger-1 {
+    animation: lazFadeInUp 280ms cubic-bezier(0.22, 1, 0.36, 1) 40ms both;
+}
+
+.laz-stagger-2 {
+    animation: lazFadeInUp 300ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+}
+
+.laz-stagger-3 {
+    animation: lazFadeInUp 320ms cubic-bezier(0.22, 1, 0.36, 1) 140ms both;
+}
+
+.laz-card-lift {
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease;
+}
+
+.laz-card-lift:hover {
+    transform: translateY(-2px);
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     ::before,
@@ -116,5 +151,9 @@
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
+    }
+
+    .laz-card-lift:hover {
+        transform: none;
     }
 }

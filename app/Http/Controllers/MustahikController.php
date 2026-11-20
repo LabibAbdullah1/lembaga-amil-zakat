@@ -76,8 +76,9 @@ class MustahikController extends Controller
                  ORDER BY vm.tanggal_verifikasi DESC, vm.id DESC
                  LIMIT 100'
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal memuat data mustahik & verifikasi: ' . $e->getMessage();
+        } catch (Throwable) {
+            $daftarMustahik = [];
+            $riwayatVerifikasi = [];
         }
 
         return Inertia::render('Mustahik/Index', [

@@ -6,11 +6,13 @@ import {
     CheckCircle2,
     FileDown,
     Plus,
+    Search,
     ShieldCheck,
     Users,
     XCircle,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
+import { MustahikSearchPicker } from '@/components/zis/MustahikSearchPicker';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +44,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { formatBerasKg, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
+import { formatBerasKg, formatPercentage, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
 import type {
     DetailPenyaluranMustahik,
     Mustahik,
@@ -92,17 +94,22 @@ export default function PenyaluranShow({
     daftarMustahik = [],
     rdbmsError,
 }: PenyaluranShowProps) {
-    const { auth } = usePage<SharedProps>().props;
+    const { auth, hakAmilPerKategori = [] } = usePage<SharedProps>().props;
     const userRole = auth?.user?.peran;
     const isKetuaOrAdmin = userRole === 'Ketua_DKM' || userRole === 'Admin';
     const isDraft = bkk.status_persetujuan === 'Draft';
     const isDisetujui = bkk.status_persetujuan === 'Disetujui';
+    const hakAmilKategoriIni = React.useMemo(
+        () => hakAmilPerKategori.find((h) => Number(h.jenis_dana_id) === Number(bkk.jenis_dana_id)) ?? null,
+        [hakAmilPerKategori, bkk.jenis_dana_id]
+    );
 
     const [isOnline, setIsOnline] = React.useState<boolean>(() =>
         typeof navigator !== 'undefined' ? navigator.onLine : true
     );
     const [tolakDialogOpen, setTolakDialogOpen] = React.useState<boolean>(false);
     const [processingAction, setProcessingAction] = React.useState<boolean>(false);
+    const [cariPenerimaDetail, setCariPenerimaDetail] = React.useState<string>('');
 
     React.useEffect(() => {
         const onOnline = () => setIsOnline(true);
@@ -191,7 +198,7 @@ export default function PenyaluranShow({
     return (
         <AuthenticatedLayout
             title={`Detail BKK: ${bkk.no_bkk}`}
-            subtitle={`Program: [${bkk.kode_program}] ${bkk.nama_program} • Status State Machine: ${bkk.status_persetujuan}`}
+            subtitle={`Program: [${bkk.kode_program}] ${bkk.nama_program} • Status Persetujuan: ${bkk.status_persetujuan}`}
         >
             <Head title={`BKK ${bkk.no_bkk}`} />
 
@@ -250,7 +257,7 @@ export default function PenyaluranShow({
                                 <Banknote className="h-4 w-4" aria-hidden="true" />
                                 <span>
                                     {processingAction
-                                        ? 'Mengeksekusi sp_eksekusi_penyaluran...'
+                                        ? 'Memproses Pencairan Dana...'
                                         : 'Eksekusi Pencairan Dana (Disalurkan)'}
                                 </span>
                             </Button>
@@ -269,7 +276,7 @@ export default function PenyaluranShow({
                                     </Badge>
                                 </div>
                                 <CardDescription>
-                                    Total BKK disinkronisasi otomatis oleh trigger <code className="font-mono text-xs">trg_after_insert_detail_penyaluran</code>.
+                                    Total nilai penyaluran dihitung secara otomatis berdasarkan daftar penerima manfaat di dalam dokumen BKK ini.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3 text-xs">
@@ -312,6 +319,32 @@ export default function PenyaluranShow({
                                         {formatRupiah(bkk.total_disalurkan)} / {formatBerasKg(bkk.total_beras_kg)}
                                     </span>
                                 </div>
+                                {hakAmilKategoriIni && (
+                                    <>
+                                        <Separator />
+                                        <div className="grid grid-cols-3 gap-2 items-center">
+                                            <span className="text-muted-foreground">
+                                                Hak Amil [{hakAmilKategoriIni.kode_dana}]
+                                            </span>
+                                            <div className="col-span-2 flex flex-wrap items-center gap-1.5 tabular-nums">
+                                                <Badge
+                                                    variant={
+                                                        hakAmilKategoriIni.persentase_amil >= 12.5
+                                                            ? 'destructive'
+                                                            : hakAmilKategoriIni.persentase_amil >= 10
+                                                              ? 'warning'
+                                                              : 'success'
+                                                    }
+                                                >
+                                                    {formatPercentage(hakAmilKategoriIni.persentase_amil)} / 12,50%
+                                                </Badge>
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    (Sisa Kuota: {formatRupiah(hakAmilKategoriIni.sisa_kuota_rupiah)})
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                                 <Separator />
                                 <div className="grid grid-cols-3 gap-2">
                                     <span className="text-muted-foreground">Diajukan Oleh</span>
@@ -339,44 +372,22 @@ export default function PenyaluranShow({
                                         <CardTitle className="text-base">
                                             Tambah Penerima Mustahik ke BKK
                                         </CardTitle>
-                                        <Badge variant="outline">sp_tambah_mustahik_bkk</Badge>
+                                        <Badge variant="outline">Multi-Mustahik</Badge>
                                     </div>
                                     <CardDescription>
-                                        Hanya BKK berstatus <code className="font-mono text-xs">Draft</code> yang dapat ditambahkan penerima baru. Constraint <code className="font-mono text-xs">UNIQUE (penyaluran_id, mustahik_id)</code> mencegah duplikasi mustahik dalam 1 BKK.
+                                        Tambahkan penerima manfaat lain ke dalam dokumen BKK ini sebelum diajukan untuk persetujuan Ketua DKM.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     <form onSubmit={handleTambahMustahik} className="space-y-4">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="tambah_mustahik_select">Pilih Mustahik</Label>
-                                            <Select
-                                                value={
-                                                    addForm.data.mustahik_id
-                                                        ? String(addForm.data.mustahik_id)
-                                                        : ''
-                                                }
-                                                onValueChange={(val) =>
-                                                    addForm.setData('mustahik_id', Number.parseInt(val, 10))
-                                                }
-                                            >
-                                                <SelectTrigger id="tambah_mustahik_select">
-                                                    <SelectValue placeholder="Pilih mustahik" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {daftarMustahik.map((m) => {
-                                                        const layak =
-                                                            Number(m.is_layak_syariat) === 1 ||
-                                                            m.is_layak_syariat === true;
-                                                        return (
-                                                            <SelectItem key={m.id} value={String(m.id)}>
-                                                                [{m.kode_asnaf}] {m.nama_lengkap} ({m.nik}) •{' '}
-                                                                {layak ? 'Layak (1)' : `${m.status_verifikasi} (0)`}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                        <MustahikSearchPicker
+                                            id="cari_nama_kk_show_bkk"
+                                            label="Cari & Ketik Nama Kepala Keluarga (KK), NIK, atau RT/RW"
+                                            daftarMustahik={daftarMustahik}
+                                            selectedId={addForm.data.mustahik_id}
+                                            onSelect={(idNum) => addForm.setData('mustahik_id', idNum)}
+                                            excludeIds={detailMustahik.map((d) => d.mustahik_id)}
+                                        />
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1.5">
@@ -417,7 +428,7 @@ export default function PenyaluranShow({
                                             <Plus className="h-4 w-4" aria-hidden="true" />
                                             <span>
                                                 {addForm.processing
-                                                    ? 'Menjalankan sp_tambah_mustahik_bkk...'
+                                                    ? 'Menambahkan Penerima...'
                                                     : 'Tambahkan Mustahik ke BKK'}
                                             </span>
                                         </Button>
@@ -437,7 +448,7 @@ export default function PenyaluranShow({
                                     </CardTitle>
                                 </div>
                                 <CardDescription>
-                                    Status serah terima fisik otomatis berubah menjadi <code className="font-mono text-xs">Sudah</code> saat BKK dieksekusi (<code className="font-mono text-xs">sp_eksekusi_penyaluran</code>).
+                                    Status serah terima otomatis diperbarui menjadi Sudah setelah BKK dicairkan oleh Ketua DKM.
                                 </CardDescription>
                             </CardHeader>
 
@@ -447,13 +458,27 @@ export default function PenyaluranShow({
                                         Belum ada rincian penerima mustahik pada BKK ini.
                                     </div>
                                 ) : (
-                                    <>
-                                        <div className="hidden md:block rounded-lg border">
+                                    <div className="space-y-3">
+                                        <div className="relative max-w-md">
+                                            <Search
+                                                className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                                aria-hidden="true"
+                                            />
+                                            <Input
+                                                type="search"
+                                                placeholder="Cari nama kepala keluarga atau NIK penerima di BKK ini..."
+                                                value={cariPenerimaDetail}
+                                                onChange={(e) => setCariPenerimaDetail(e.target.value)}
+                                                className="pl-9"
+                                            />
+                                        </div>
+
+                                        <div className="hidden md:block max-h-[540px] overflow-y-auto rounded-lg border">
                                             <Table>
-                                                <TableHeader>
+                                                <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                                     <TableRow>
                                                         <TableHead>No</TableHead>
-                                                        <TableHead>Mustahik & NIK</TableHead>
+                                                        <TableHead>Nama Kepala Keluarga (Mustahik) & NIK</TableHead>
                                                         <TableHead>Asnaf & Kelayakan</TableHead>
                                                         <TableHead className="text-right">Uang Diterima</TableHead>
                                                         <TableHead className="text-right">Beras (Kg)</TableHead>
@@ -462,6 +487,16 @@ export default function PenyaluranShow({
                                                 </TableHeader>
                                                 <TableBody>
                                                     {detailMustahik.map((item, idx) => {
+                                                        const qDetail = cariPenerimaDetail.trim().toLowerCase();
+                                                        if (
+                                                            qDetail !== '' &&
+                                                            !item.nama_mustahik.toLowerCase().includes(qDetail) &&
+                                                            !item.nik_mustahik.toLowerCase().includes(qDetail) &&
+                                                            !(item.alamat_rt_rw ?? '').toLowerCase().includes(qDetail)
+                                                        ) {
+                                                            return null;
+                                                        }
+
                                                         const layak =
                                                             Number(item.is_layak_syariat) === 1 ||
                                                             item.is_layak_syariat === true;
@@ -578,7 +613,7 @@ export default function PenyaluranShow({
                                                 </div>
                                             ))}
                                         </div>
-                                    </>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>

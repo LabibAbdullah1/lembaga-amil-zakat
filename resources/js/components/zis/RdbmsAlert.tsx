@@ -9,14 +9,14 @@ interface RdbmsAlertProps {
 
 export function RdbmsAlert({
     message,
-    title = 'Penolakan Integritas Database (SQLSTATE 45000)',
+    title = 'Pemberitahuan Validasi Syariat & Transaksi',
 }: RdbmsAlertProps) {
     if (!message) {
         return null;
     }
 
     return (
-        <Alert variant="destructive" className="my-3">
+        <Alert variant="destructive" className="my-3 shadow-xs">
             <AlertTriangle className="h-4 w-4" aria-hidden="true" />
             <AlertTitle>{title}</AlertTitle>
             <AlertDescription className="mt-1 font-medium">

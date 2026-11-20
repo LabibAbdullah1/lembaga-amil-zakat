@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Edit3, Eye, Plus, Search, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit3, Eye, Plus, Search, Users } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +56,15 @@ export default function MuzakiIndex({
     const [jenisFilter, setJenisFilter] = React.useState<string>(filters?.jenis ?? 'SEMUA');
     const [dialogOpen, setDialogOpen] = React.useState<boolean>(false);
     const [editingMuzaki, setEditingMuzaki] = React.useState<MuzakiRow | null>(null);
+    const [limitMuzaki, setLimitMuzaki] = React.useState<number>(10);
+    const [pageMuzaki, setPageMuzaki] = React.useState<number>(1);
+
+    const totalPagesMuzaki = Math.max(1, Math.ceil(daftarMuzaki.length / limitMuzaki));
+    const currentPageMuzaki = Math.min(pageMuzaki, totalPagesMuzaki);
+    const paginatedMuzaki = React.useMemo(() => {
+        const start = (currentPageMuzaki - 1) * limitMuzaki;
+        return daftarMuzaki.slice(start, start + limitMuzaki);
+    }, [daftarMuzaki, currentPageMuzaki, limitMuzaki]);
 
     const { data, setData, post, put, processing, errors, reset } = useForm<{
         nik: string;
@@ -114,7 +123,7 @@ export default function MuzakiIndex({
     return (
         <AuthenticatedLayout
             title="Manajemen Muzaki & Kepala Keluarga (KK)"
-            subtitle="Perhitungan jumlah jiwa zakat fitrah ditarik otomatis melalui SELECT fn_hitung_jiwa_muzaki(?)"
+            subtitle="Pendaftaran donatur dan pengelolaan jumlah jiwa tanggungan zakat fitrah keluarga"
         >
             <Head title="Data Muzaki & Keluarga" />
 
@@ -190,9 +199,23 @@ export default function MuzakiIndex({
                             </div>
 
                             <div className="sm:col-span-2">
-                                <Button type="submit" variant="secondary" className="w-full">
-                                    Cari Data
-                                </Button>
+                                <Select
+                                    value={String(limitMuzaki)}
+                                    onValueChange={(val) => {
+                                        setLimitMuzaki(Number.parseInt(val, 10) || 10);
+                                        setPageMuzaki(1);
+                                    }}
+                                >
+                                    <SelectTrigger aria-label="Limit Baris Muzaki">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10 baris</SelectItem>
+                                        <SelectItem value="25">25 baris</SelectItem>
+                                        <SelectItem value="50">50 baris</SelectItem>
+                                        <SelectItem value="100">100 baris</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </form>
 
@@ -205,22 +228,22 @@ export default function MuzakiIndex({
                             </div>
                         ) : (
                             <>
-                                <div className="hidden md:block rounded-lg border">
+                                <div className="hidden md:block max-h-[540px] overflow-y-auto rounded-lg border">
                                     <Table>
-                                        <TableHeader>
+                                        <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                             <TableRow>
                                                 <TableHead>NIK (16 Digit)</TableHead>
                                                 <TableHead>Nama Lengkap Muzaki</TableHead>
                                                 <TableHead>No. HP & Alamat RT/RW</TableHead>
                                                 <TableHead>Jenis</TableHead>
                                                 <TableHead className="text-right">
-                                                    Hitungan Jiwa (RDBMS)
+                                                    Jumlah Jiwa Keluarga
                                                 </TableHead>
                                                 <TableHead className="text-right">Tindakan</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {daftarMuzaki.map((row) => (
+                                            {paginatedMuzaki.map((row) => (
                                                 <TableRow key={row.id}>
                                                     <TableCell className="font-mono text-xs font-semibold">
                                                         {row.nik}
@@ -249,7 +272,11 @@ export default function MuzakiIndex({
                                                             <Button asChild variant="outline" size="sm">
                                                                 <Link href={`/muzaki/${row.id}`}>
                                                                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                    <span>Anggota KK</span>
+                                                                    <span>
+                                                                        {row.jenis_muzaki === 'Individu'
+                                                                            ? 'Detail'
+                                                                            : 'Anggota KK'}
+                                                                    </span>
                                                                 </Link>
                                                             </Button>
                                                             <Button
@@ -270,7 +297,7 @@ export default function MuzakiIndex({
                                 </div>
 
                                 <div className="grid gap-3 md:hidden">
-                                    {daftarMuzaki.map((row) => (
+                                    {paginatedMuzaki.map((row) => (
                                         <div
                                             key={row.id}
                                             className="rounded-lg border bg-card p-4 space-y-2.5"
@@ -294,7 +321,11 @@ export default function MuzakiIndex({
                                                 <Button asChild variant="default" size="sm" className="flex-1">
                                                     <Link href={`/muzaki/${row.id}`}>
                                                         <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                                                        <span>Kelola Anggota KK</span>
+                                                        <span>
+                                                            {row.jenis_muzaki === 'Individu'
+                                                                ? 'Detail Muzaki'
+                                                                : 'Kelola Anggota KK'}
+                                                        </span>
                                                     </Link>
                                                 </Button>
                                                 <Button
@@ -309,6 +340,37 @@ export default function MuzakiIndex({
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
+                                    <span className="text-muted-foreground tabular-nums">
+                                        Menampilkan {paginatedMuzaki.length} dari {daftarMuzaki.length} muzaki (Halaman{' '}
+                                        {currentPageMuzaki} / {totalPagesMuzaki})
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPageMuzaki <= 1}
+                                            onClick={() => setPageMuzaki((p) => Math.max(1, p - 1))}
+                                        >
+                                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                            <span>Sebelumnya</span>
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPageMuzaki >= totalPagesMuzaki}
+                                            onClick={() =>
+                                                setPageMuzaki((p) => Math.min(totalPagesMuzaki, p + 1))
+                                            }
+                                        >
+                                            <span>Berikutnya</span>
+                                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </>
                         )}

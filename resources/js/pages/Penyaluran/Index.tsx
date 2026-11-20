@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, FileDown, FileSpreadsheet, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, FileDown, FileSpreadsheet, Plus, Search } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
@@ -53,8 +53,11 @@ export default function PenyaluranIndex({
 }: PenyaluranIndexProps) {
     const [searchQuery, setSearchQuery] = React.useState<string>(filters?.q ?? '');
     const [statusFilter, setStatusFilter] = React.useState<string>(filters?.status ?? 'SEMUA');
+    const [currentPage, setCurrentPage] = React.useState<number>(1);
+    const [perPage, setPerPage] = React.useState<number>(15);
 
     const applyFilter = (qVal: string, statusVal: string) => {
+        setCurrentPage(1);
         router.get(
             '/penyaluran',
             { q: qVal, status: statusVal },
@@ -66,6 +69,13 @@ export default function PenyaluranIndex({
         event.preventDefault();
         applyFilter(searchQuery, statusFilter);
     };
+
+    const totalPages = Math.max(1, Math.ceil(daftarBkk.length / perPage));
+    const safePage = Math.min(currentPage, totalPages);
+    const paginatedBkk = React.useMemo(() => {
+        const start = (safePage - 1) * perPage;
+        return daftarBkk.slice(start, start + perPage);
+    }, [daftarBkk, safePage, perPage]);
 
     const getStatusBadgeVariant = (
         status: StatusPersetujuanBkk
@@ -79,7 +89,7 @@ export default function PenyaluranIndex({
     return (
         <AuthenticatedLayout
             title="Daftar Bukti Kas Keluar (BKK) Penyaluran Dana"
-            subtitle="Alur State Machine RDBMS ketat: Draft -> Disetujui -> Disalurkan (atau Draft -> Ditolak)"
+            subtitle="Pengelolaan draf pengajuan, persetujuan Ketua DKM, dan pencairan dana penyaluran kepada mustahik"
         >
             <Head title="Daftar BKK Penyaluran" />
 
@@ -96,7 +106,7 @@ export default function PenyaluranIndex({
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Saldo kantong dana baru terpotong saat transisi sah <code className="font-mono text-xs">Disetujui -&gt; Disalurkan</code> melalui <code className="font-mono text-xs">sp_eksekusi_penyaluran</code> dengan <code className="font-mono text-xs">FOR UPDATE</code> locking.
+                                Saldo kantong dana akan terpotong secara otomatis setelah BKK disetujui dan dieksekusi pencairannya oleh Ketua DKM.
                             </CardDescription>
                         </div>
 
@@ -110,7 +120,7 @@ export default function PenyaluranIndex({
 
                     <CardContent className="space-y-4">
                         <form onSubmit={handleSearchSubmit} className="grid gap-3 sm:grid-cols-12">
-                            <div className="sm:col-span-6">
+                            <div className="sm:col-span-5">
                                 <Label htmlFor="cari-bkk" className="sr-only">
                                     Cari Nomor BKK atau Program
                                 </Label>
@@ -130,7 +140,7 @@ export default function PenyaluranIndex({
                                 </div>
                             </div>
 
-                            <div className="sm:col-span-4">
+                            <div className="sm:col-span-3">
                                 <Select
                                     value={statusFilter}
                                     onValueChange={(val) => {
@@ -152,6 +162,27 @@ export default function PenyaluranIndex({
                             </div>
 
                             <div className="sm:col-span-2">
+                                <Select
+                                    value={String(perPage)}
+                                    onValueChange={(val) => {
+                                        setPerPage(Number.parseInt(val, 10) || 15);
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger aria-label="Batas tampilan baris BKK">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10 baris</SelectItem>
+                                        <SelectItem value="15">15 baris</SelectItem>
+                                        <SelectItem value="25">25 baris</SelectItem>
+                                        <SelectItem value="50">50 baris</SelectItem>
+                                        <SelectItem value="100">100 baris</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="sm:col-span-2">
                                 <Button type="submit" variant="secondary" className="w-full">
                                     Filter
                                 </Button>
@@ -167,20 +198,20 @@ export default function PenyaluranIndex({
                             </div>
                         ) : (
                             <>
-                                <div className="hidden md:block rounded-lg border">
+                                <div className="hidden md:block max-h-[540px] overflow-y-auto rounded-lg border">
                                     <Table>
-                                        <TableHeader>
+                                        <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                             <TableRow>
                                                 <TableHead>No. BKK & Tanggal</TableHead>
                                                 <TableHead>Program & Kantong Dana</TableHead>
                                                 <TableHead className="text-right">Penerima</TableHead>
                                                 <TableHead className="text-right">Total Uang & Beras</TableHead>
-                                                <TableHead>Status State Machine</TableHead>
+                                                <TableHead>Status Persetujuan</TableHead>
                                                 <TableHead className="text-right">Tindakan</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {daftarBkk.map((row) => (
+                                            {paginatedBkk.map((row) => (
                                                 <TableRow key={row.id}>
                                                     <TableCell>
                                                         <p className="font-mono text-xs font-bold">
@@ -239,7 +270,7 @@ export default function PenyaluranIndex({
                                 </div>
 
                                 <div className="grid gap-3 md:hidden">
-                                    {daftarBkk.map((row) => (
+                                    {paginatedBkk.map((row) => (
                                         <div
                                             key={row.id}
                                             className="rounded-lg border bg-card p-4 space-y-2.5"
@@ -285,6 +316,36 @@ export default function PenyaluranIndex({
                                         </div>
                                     ))}
                                 </div>
+
+                                {totalPages > 1 && (
+                                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs">
+                                        <span className="text-muted-foreground tabular-nums">
+                                            Halaman {safePage} dari {totalPages} (Total {daftarBkk.length} BKK)
+                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={safePage <= 1}
+                                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                            >
+                                                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                                <span>Sebelumnya</span>
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={safePage >= totalPages}
+                                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                            >
+                                                <span>Berikutnya</span>
+                                                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </CardContent>

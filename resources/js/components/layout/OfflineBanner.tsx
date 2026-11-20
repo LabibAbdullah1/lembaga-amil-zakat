@@ -31,7 +31,7 @@ export function OfflineBanner() {
         >
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
-                Perangkat sedang luring (offline). Input transaksi ZIS dan pencairan BKK dinonaktifkan sementara demi menjaga integritas saldo RDBMS.
+                Koneksi internet terputus. Penyimpanan transaksi dan pencairan dana dinonaktifkan sementara hingga perangkat kembali terhubung.
             </span>
         </div>
     );

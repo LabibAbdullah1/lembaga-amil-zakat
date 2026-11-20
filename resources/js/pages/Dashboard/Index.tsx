@@ -38,6 +38,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatBerasKg, formatPercentage, formatRupiah } from '@/lib/format';
 import type {
+    HakAmilKategoriItem,
     KategoriUtamaDana,
     PeriodeRamadhan,
     ViewRekapPenyaluranAsnaf,
@@ -60,6 +61,7 @@ interface DashboardProps {
     rekapAsnaf: ViewRekapPenyaluranAsnaf[];
     periodeAktif: PeriodeRamadhan | null;
     persentaseHakAmil: number;
+    hakAmilPerKategori?: HakAmilKategoriItem[];
     ringkasanPeriode: RingkasanPeriode;
     rdbmsError?: string | null;
 }
@@ -69,6 +71,7 @@ export default function DashboardIndex({
     rekapAsnaf = [],
     periodeAktif,
     persentaseHakAmil = 0,
+    hakAmilPerKategori = [],
     ringkasanPeriode,
     rdbmsError,
 }: DashboardProps) {
@@ -79,7 +82,7 @@ export default function DashboardIndex({
     const handleRefreshSaldo = () => {
         setIsRefreshing(true);
         router.reload({
-            only: ['saldoDana', 'rekapAsnaf', 'periodeAktif', 'persentaseHakAmil', 'ringkasanPeriode', 'rdbmsError'],
+            only: ['saldoDana', 'rekapAsnaf', 'periodeAktif', 'persentaseHakAmil', 'hakAmilPerKategori', 'ringkasanPeriode', 'rdbmsError'],
             onFinish: () => setIsRefreshing(false),
         });
     };
@@ -133,19 +136,16 @@ export default function DashboardIndex({
     return (
         <AuthenticatedLayout
             title="Beranda Saldo & Ringkasan Operasional ZIS"
-            subtitle="Data saldo dibaca real-time dari v_saldo_jenis_dana (koneksi mysql_laporan)"
+            subtitle="Ringkasan posisi saldo dana umat, penghimpunan zakat fitrah, dan penyaluran 8 golongan asnaf"
         >
             <Head title="Beranda Saldo & Periode Aktif" />
 
             <div className="space-y-6">
-                <RdbmsAlert
-                    message={rdbmsError}
-                    title="Peringatan Pembacaan View RDBMS"
-                />
+                <RdbmsAlert message={rdbmsError} />
 
                 {/* Panel Ringkasan Periode Ramadhan Aktif & Batas Hak Amil */}
-                <section className="grid gap-4 lg:grid-cols-12">
-                    <Card className="lg:col-span-7">
+                <section className="grid gap-4 lg:grid-cols-12 laz-stagger-1">
+                    <Card className="lg:col-span-7 laz-card-lift">
                         <CardHeader className="pb-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
@@ -226,64 +226,93 @@ export default function DashboardIndex({
                             ) : (
                                 <div className="rounded-lg border border-dashed p-6 text-center space-y-2">
                                     <p className="text-sm font-semibold">
-                                        Belum ada baris periode_ramadhan dengan status_aktif = 1
+                                        Belum Ada Periode Ramadhan Aktif
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        Aktifkan satu periode Ramadhan pada modul Master Data (Admin) agar perhitungan zakat fitrah dan persentase hak amil berjalan.
+                                        Aktifkan satu periode Ramadhan pada menu Master Periode agar perhitungan zakat fitrah dan persentase hak amil berjalan.
                                     </p>
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
-                    <Card className="lg:col-span-5">
+                    <Card className="lg:col-span-5 laz-card-lift">
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                     <Scale className="h-5 w-5 text-primary" aria-hidden="true" />
                                     <CardTitle className="text-base">
-                                        Pengawasan Kepatuhan Syariat RDBMS
+                                        Pengawasan Hak Amil per Kategori Zakat
                                     </CardTitle>
                                 </div>
-                                <Badge variant="outline">fn_persentase_hak_amil</Badge>
+                                <Badge variant="outline">Maks 12,50% / Kategori</Badge>
                             </div>
                             <CardDescription>
-                                Pemantauan batas maksimal alokasi Asnaf Amil (ASN-03) & kelayakan verifikasi mustahik 365 hari.
+                                Pembagian Hak Amil (ASN-03) dihitung dan dibatasi maksimal 12,50% secara terpisah pada masing-masing kategori dana zakat.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="rounded-lg border p-4 space-y-2.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">Realisasi Hak Amil (Uang + Konversi Beras)</span>
-                                    <span className="font-bold tabular-nums">
-                                        {formatPercentage(amilNumeric)} / Maks 12,50%
-                                    </span>
+                            {hakAmilPerKategori.length === 0 ? (
+                                <div className="rounded-lg border p-4 space-y-2.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-semibold">Realisasi Hak Amil (Per Kategori Zakat)</span>
+                                        <span className="font-bold tabular-nums">
+                                            {formatPercentage(amilNumeric)} / Maks 12,50%
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Belum ada data penghimpunan kategori zakat pada periode aktif.
+                                    </p>
                                 </div>
-                                <div
-                                    role="progressbar"
-                                    aria-valuenow={Math.min(100, Math.round((amilNumeric / 12.5) * 100))}
-                                    aria-valuemin={0}
-                                    aria-valuemax={100}
-                                    aria-label="Persentase penggunaan batas hak amil"
-                                    className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
-                                >
-                                    <div
-                                        className={
-                                            amilNumeric >= 12.5
-                                                ? 'h-full bg-destructive transition-all'
-                                                : amilNumeric >= 10
-                                                  ? 'h-full bg-amber-500 transition-all'
-                                                  : 'h-full bg-primary transition-all'
-                                        }
-                                        style={{
-                                            width: `${Math.min(100, (amilNumeric / 12.5) * 100)}%`,
-                                        }}
-                                    />
+                            ) : (
+                                <div className="space-y-2.5">
+                                    {hakAmilPerKategori.map((kat) => {
+                                        const p = Number(kat.persentase_amil) || 0;
+                                        return (
+                                            <div
+                                                key={kat.jenis_dana_id}
+                                                className="rounded-lg border bg-muted/20 p-3 space-y-2"
+                                            >
+                                                <div className="flex items-center justify-between gap-2 text-xs">
+                                                    <span className="font-semibold truncate">
+                                                        [{kat.kode_dana}] {kat.nama_dana}
+                                                    </span>
+                                                    <span className="font-bold tabular-nums shrink-0">
+                                                        {formatPercentage(p)} / 12,50%
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    role="progressbar"
+                                                    aria-valuenow={Math.min(100, Math.round((p / 12.5) * 100))}
+                                                    aria-valuemin={0}
+                                                    aria-valuemax={100}
+                                                    aria-label={`Persentase hak amil ${kat.nama_dana}`}
+                                                    className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                                                >
+                                                    <div
+                                                        className={
+                                                            p >= 12.5
+                                                                ? 'h-full bg-destructive transition-all'
+                                                                : p >= 10
+                                                                  ? 'h-full bg-amber-500 transition-all'
+                                                                  : 'h-full bg-primary transition-all'
+                                                        }
+                                                        style={{
+                                                            width: `${Math.min(100, (p / 12.5) * 100)}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground tabular-nums">
+                                                    <span>Terpakai: {formatRupiah(kat.total_amil_rupiah)}</span>
+                                                    <span>
+                                                        Sisa Kuota 12,5%: <strong className="text-foreground">{formatRupiah(kat.sisa_kuota_rupiah)}</strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                                <p className="text-[11px] text-muted-foreground">
-                                    Trigger <code className="font-mono">trg_before_insert_detail_penyaluran</code> otomatis menolak BKK dengan <code className="font-mono">SQLSTATE 45000</code> bila alokasi ASN-03 melampaui 12,50%.
-                                </p>
-                            </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="rounded-lg border p-3 space-y-1">
@@ -310,7 +339,7 @@ export default function DashboardIndex({
                 </section>
 
                 {/* Tabs: Daftar Saldo Kantong Dana (v_saldo_jenis_dana) & Rekap 8 Asnaf (v_rekap_penyaluran_asnaf) */}
-                <Card>
+                <Card className="laz-stagger-2">
                     <CardHeader className="space-y-3">
                         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                             <div>
@@ -321,7 +350,7 @@ export default function DashboardIndex({
                                     </CardTitle>
                                 </div>
                                 <CardDescription>
-                                    Dieksekusi secara read-only melalui akun <code className="font-mono text-xs">zis_laporan</code> pada VIEW database.
+                                    Rincian saldo uang dan beras tersedia per kantong dana beserta akumulasi penyaluran 8 golongan asnaf.
                                 </CardDescription>
                             </div>
 
@@ -353,41 +382,21 @@ export default function DashboardIndex({
                             </TabsList>
 
                             <TabsContent value="saldo" className="space-y-4 pt-3">
-                                <div className="grid gap-3 sm:grid-cols-12">
-                                    <div className="sm:col-span-7 space-y-1.5">
-                                        <Label htmlFor="cari-dana">Cari Kode atau Nama Kantong Dana</Label>
-                                        <div className="relative">
-                                            <Search
-                                                className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
-                                                aria-hidden="true"
-                                            />
-                                            <Input
-                                                id="cari-dana"
-                                                type="search"
-                                                placeholder="Ketik kode dana atau nama kantong dana..."
-                                                value={pencarianDana}
-                                                onChange={(e) => setPencarianDana(e.target.value)}
-                                                className="pl-9"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="sm:col-span-5 space-y-1.5">
-                                        <Label htmlFor="filter-kategori">Filter Kategori Utama</Label>
-                                        <Select
-                                            value={kategoriFilter}
-                                            onValueChange={(value) => setKategoriFilter(value)}
-                                        >
-                                            <SelectTrigger id="filter-kategori">
-                                                <SelectValue placeholder="Pilih kategori dana" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="SEMUA">Semua Kategori Dana</SelectItem>
-                                                <SelectItem value="Zakat">Zakat (Fitrah & Mal)</SelectItem>
-                                                <SelectItem value="Infak_Sedekah">Infak & Sedekah</SelectItem>
-                                                <SelectItem value="Wakaf">Wakaf</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                <div className="max-w-lg space-y-1.5">
+                                    <Label htmlFor="cari-dana">Cari Kode atau Nama Kantong Dana Zakat</Label>
+                                    <div className="relative">
+                                        <Search
+                                            className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                            aria-hidden="true"
+                                        />
+                                        <Input
+                                            id="cari-dana"
+                                            type="search"
+                                            placeholder="Ketik kode dana atau nama kantong zakat..."
+                                            value={pencarianDana}
+                                            onChange={(e) => setPencarianDana(e.target.value)}
+                                            className="pl-9"
+                                        />
                                     </div>
                                 </div>
 
@@ -398,7 +407,7 @@ export default function DashboardIndex({
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                             {saldoDana.length === 0
-                                                ? 'VIEW v_saldo_jenis_dana belum mengembalikan baris atau koneksi database db_laz_zis_masjid belum terisi data master jenis_dana.'
+                                                ? 'Belum ada data kantong dana yang tercatat.'
                                                 : 'Tidak ada kantong dana yang cocok dengan kata kunci pencarian atau filter kategori Anda.'}
                                         </p>
                                         {kategoriFilter !== 'SEMUA' || pencarianDana !== '' ? (
@@ -527,10 +536,10 @@ export default function DashboardIndex({
                                 {rekapAsnaf.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
                                         <p className="text-sm font-semibold">
-                                            Belum ada data rekap penyaluran 8 Asnaf dari v_rekap_penyaluran_asnaf
+                                            Belum Ada Realisasi Penyaluran 8 Asnaf
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            Data akan muncul secara otomatis setelah database terhubung dan BKK berstatus Disalurkan.
+                                            Rekapitulasi penyaluran per golongan asnaf akan tampil setelah pencairan dana (BKK) dilaksanakan.
                                         </p>
                                     </div>
                                 ) : (

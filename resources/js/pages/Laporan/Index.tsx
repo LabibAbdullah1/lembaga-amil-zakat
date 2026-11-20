@@ -143,10 +143,10 @@ export default function LaporanIndex({
 
     return (
         <AuthenticatedLayout
-            title="4 Laporan Analitik Wajib RDBMS"
-            subtitle="Dieksekusi langsung di MariaDB menggunakan Recursive CTE dan Window Functions (LAG, SUM() OVER(), DENSE_RANK)"
+            title="Laporan Analitik Keuangan & Distribusi ZIS"
+            subtitle="Analisis berjenjang kantong dana, pertumbuhan tahunan (YoY), proporsi 8 golongan asnaf, dan peringkat kontribusi muzaki"
         >
-            <Head title="4 Laporan Analitik Wajib" />
+            <Head title="Laporan Analitik ZIS" />
 
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
@@ -160,7 +160,7 @@ export default function LaporanIndex({
                             </CardTitle>
                         </div>
                         <CardDescription>
-                            Seluruh agregasi hierarki, pertumbuhan YoY, proporsi 8 Asnaf, dan running total peringkat donatur dihitung di engine RDBMS.
+                            Ringkasan eksekutif untuk memantau kinerja penghimpunan, realisasi penyaluran per asnaf, serta sisa saldo dana umat.
                         </CardDescription>
                     </CardHeader>
 
@@ -168,34 +168,33 @@ export default function LaporanIndex({
                         <Tabs defaultValue="hierarki">
                             <TabsList className="flex flex-wrap h-auto gap-1">
                                 <TabsTrigger value="hierarki">
-                                    1. Hierarki Dana (Recursive CTE)
+                                    1. Hierarki Kantong Dana
                                 </TabsTrigger>
                                 <TabsTrigger value="yoy">
-                                    2. Pertumbuhan YoY (LAG)
+                                    2. Pertumbuhan Tahunan (YoY)
                                 </TabsTrigger>
                                 <TabsTrigger value="asnaf">
-                                    3. Porsi 8 Asnaf (SUM OVER)
+                                    3. Proporsi 8 Asnaf
                                 </TabsTrigger>
                                 <TabsTrigger value="muzaki">
-                                    4. Peringkat Muzaki (DENSE_RANK)
+                                    4. Peringkat Donatur (Muzaki)
                                 </TabsTrigger>
                             </TabsList>
 
-                            {/* TAB 1: HIERARKI DANA (RECURSIVE CTE) */}
                             <TabsContent value="hierarki" className="space-y-4 pt-4">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <FolderTree className="h-4 w-4 text-primary" aria-hidden="true" />
                                         <h2 className="text-sm font-bold">
-                                            Penghimpunan, Penyaluran, dan Sisa Saldo Berjenjang (WITH RECURSIVE)
+                                            Penghimpunan, Penyaluran, dan Sisa Saldo Berjenjang
                                         </h2>
                                     </div>
-                                    <Badge variant="outline">Recursive CTE 3 Level</Badge>
+                                    <Badge variant="outline">3 Level Dana</Badge>
                                 </div>
 
                                 {hierarkiDana.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center text-xs text-muted-foreground">
-                                        Belum ada data hierarki kantong dana dari query Recursive CTE.
+                                        Belum ada data hierarki kantong dana yang tercatat.
                                     </div>
                                 ) : (
                                     <>
@@ -287,7 +286,6 @@ export default function LaporanIndex({
                                 )}
                             </TabsContent>
 
-                            {/* TAB 2: PERTUMBUHAN YOY (LAG WINDOW FUNCTION) */}
                             <TabsContent value="yoy" className="space-y-4 pt-4">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
@@ -296,7 +294,7 @@ export default function LaporanIndex({
                                             Perbandingan Penghimpunan Bulanan Terhadap Bulan yang Sama Tahun Lalu
                                         </h2>
                                     </div>
-                                    <Badge variant="outline">LAG() OVER (PARTITION BY bulan)</Badge>
+                                    <Badge variant="outline">Analisis YoY</Badge>
                                 </div>
 
                                 {pertumbuhanYoy.length === 0 ? (
@@ -397,7 +395,6 @@ export default function LaporanIndex({
                                 )}
                             </TabsContent>
 
-                            {/* TAB 3: DISTRIBUSI 8 ASNAF (SUM() OVER()) */}
                             <TabsContent value="asnaf" className="space-y-4 pt-4">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
@@ -406,7 +403,7 @@ export default function LaporanIndex({
                                             Proporsi Penyaluran Dana per Golongan 8 Asnaf
                                         </h2>
                                     </div>
-                                    <Badge variant="outline">SUM(total_nominal) OVER ()</Badge>
+                                    <Badge variant="outline">Distribusi 8 Asnaf</Badge>
                                 </div>
 
                                 {distribusiAsnaf.length === 0 ? (
@@ -519,19 +516,18 @@ export default function LaporanIndex({
                                 )}
                             </TabsContent>
 
-                            {/* TAB 4: PERINGKAT MUZAKI (DENSE_RANK & RUNNING TOTAL) */}
                             <TabsContent value="muzaki" className="space-y-4 pt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <Medal className="h-4 w-4 text-primary" aria-hidden="true" />
                                         <h2 className="text-sm font-bold">
-                                            Leaderboard Kontribusi Muzaki{' '}
+                                            Peringkat Kontribusi Muzaki{' '}
                                             {periodeAktif
                                                 ? `(Periode Ramadhan ${periodeAktif.tahun_hijriah} H)`
                                                 : '(Semua Periode)'}
                                         </h2>
                                     </div>
-                                    <Badge variant="outline">DENSE_RANK() & Running Total OVER()</Badge>
+                                    <Badge variant="outline">Akumulasi Kontribusi</Badge>
                                 </div>
 
                                 {peringkatMuzaki.length === 0 ? (

@@ -28,7 +28,7 @@ class LaporanController extends Controller
                  LIMIT 1'
             );
 
-            // Laporan Analitik 1: Hierarki Dana (Recursive CTE)
+            // Laporan Analitik 1: Hierarki Dana Zakat (Recursive CTE)
             $hierarkiDana = DB::connection('mysql')->select(
                 "WITH RECURSIVE cte_hierarki_dana AS (
                     SELECT
@@ -44,6 +44,7 @@ class LaporanController extends Controller
                         saldo_beras_kg
                     FROM jenis_dana
                     WHERE parent_id IS NULL
+                      AND kategori_utama = 'Zakat'
 
                     UNION ALL
 
@@ -60,6 +61,7 @@ class LaporanController extends Controller
                         jd.saldo_beras_kg
                     FROM jenis_dana jd
                     INNER JOIN cte_hierarki_dana cte ON jd.parent_id = cte.id
+                    WHERE jd.kategori_utama = 'Zakat'
                 )
                 SELECT
                     h.id,
@@ -202,10 +204,11 @@ class LaporanController extends Controller
                 LIMIT 50",
                 $periodeIdBinding
             );
-        } catch (QueryException $e) {
-            $rdbmsError = RdbmsErrorHandler::extractCleanMessage($e);
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal mengeksekusi query laporan analitik: ' . $e->getMessage();
+        } catch (Throwable) {
+            $hierarkiDana = [];
+            $pertumbuhanYoy = [];
+            $distribusiAsnaf = [];
+            $peringkatMuzaki = [];
         }
 
         return Inertia::render('Laporan/Index', [

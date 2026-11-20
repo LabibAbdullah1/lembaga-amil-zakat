@@ -95,7 +95,7 @@ export default function MasterPeriode({
     return (
         <AuthenticatedLayout
             title="Master Periode Ramadhan"
-            subtitle="Pengaturan takaran beras & tarif fitrah per jiwa (maksimal 1 periode aktif dijaga oleh Trigger RDBMS)"
+            subtitle="Pengaturan takaran beras & tarif zakat fitrah per jiwa untuk periode operasional Ramadhan"
         >
             <Head title="Master Periode Ramadhan" />
 
@@ -112,7 +112,7 @@ export default function MasterPeriode({
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Trigger <code className="font-mono text-xs">trg_before_insert_periode_ramadhan</code> & <code className="font-mono text-xs">trg_before_update_periode_ramadhan</code> menolak otomatis (<code className="font-mono text-xs">SQLSTATE 45000</code>) jika lebih dari 1 periode diaktifkan bersamaan.
+                                Hanya satu periode Ramadhan yang dapat berstatus aktif pada satu waktu operasional.
                             </CardDescription>
                         </div>
 

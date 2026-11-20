@@ -17,6 +17,7 @@ class DashboardController extends Controller
         $rekapAsnaf = [];
         $periodeAktif = null;
         $persentaseHakAmil = 0.0;
+        $hakAmilPerKategori = [];
         $ringkasanPeriode = [
             'jumlah_kwitansi_sah' => 0,
             'total_penghimpunan_uang' => 0.0,
@@ -32,14 +33,16 @@ class DashboardController extends Controller
         // 1. Baca v_saldo_jenis_dana dan v_rekap_penyaluran_asnaf secara eksklusif dari koneksi mysql_laporan (zis_laporan)
         try {
             $saldoDana = DB::connection('mysql_laporan')
-                ->select('SELECT * FROM v_saldo_jenis_dana');
+                ->select("SELECT * FROM v_saldo_jenis_dana WHERE kategori_utama = 'Zakat'");
 
             $rekapAsnaf = DB::connection('mysql_laporan')
                 ->select('SELECT * FROM v_rekap_penyaluran_asnaf');
-        } catch (QueryException $e) {
-            $rdbmsError = RdbmsErrorHandler::extractCleanMessage($e);
-        } catch (Throwable $e) {
-            $rdbmsError = 'Koneksi ke v_saldo_jenis_dana (mysql_laporan) belum tersedia: ' . $e->getMessage();
+        } catch (QueryException) {
+            $saldoDana = [];
+            $rekapAsnaf = [];
+        } catch (Throwable) {
+            $saldoDana = [];
+            $rekapAsnaf = [];
         }
 
         // 2. Baca ringkasan periode aktif & fn_persentase_hak_amil dari koneksi mysql (zis_aplikasi)
@@ -49,10 +52,65 @@ class DashboardController extends Controller
 
             if ($periodeAktif && isset($periodeAktif->id)) {
                 $periodeId = (int) $periodeAktif->id;
+                $berasPerJiwa = max(0.01, (float) ($periodeAktif->beras_per_jiwa_kg ?? 2.5));
+                $nominalPerJiwa = (float) ($periodeAktif->nominal_fitrah_per_jiwa ?? 45000);
 
-                $amilRow = DB::connection('mysql')
-                    ->selectOne('SELECT fn_persentase_hak_amil(?) AS persentase', [$periodeId]);
-                $persentaseHakAmil = (float) ($amilRow->persentase ?? 0.0);
+                $kategoriRows = DB::connection('mysql')->select(
+                    "SELECT jd.id AS jenis_dana_id,
+                            jd.kode_dana,
+                            jd.nama_dana,
+                            COALESCE((
+                                SELECT SUM(dp.nominal + ((dp.berat_beras_kg / ?) * ?))
+                                FROM detail_penghimpunan dp
+                                INNER JOIN transaksi_penghimpunan tp ON tp.id = dp.transaksi_id
+                                WHERE tp.periode_id = ?
+                                  AND tp.status_transaksi = 'Sah'
+                                  AND dp.jenis_dana_id = jd.id
+                            ), 0) AS total_himpun_rupiah,
+                            COALESCE((
+                                SELECT SUM(dpm.nominal_diterima + ((dpm.beras_diterima_kg / ?) * ?))
+                                FROM detail_penyaluran_mustahik dpm
+                                INNER JOIN penyaluran_dana pd ON pd.id = dpm.penyaluran_id
+                                INNER JOIN program_penyaluran pp ON pp.id = pd.program_id
+                                INNER JOIN mustahik m ON m.id = dpm.mustahik_id
+                                INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+                                WHERE pp.periode_id = ?
+                                  AND pd.jenis_dana_id = jd.id
+                                  AND ka.kode_asnaf = 'ASN-03'
+                                  AND pd.status_persetujuan IN ('Draft', 'Disetujui', 'Disalurkan')
+                            ), 0) AS total_amil_rupiah
+                     FROM jenis_dana jd
+                     WHERE jd.kategori_utama = 'Zakat'
+                       AND NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
+                     ORDER BY jd.kode_dana ASC",
+                    [$berasPerJiwa, $nominalPerJiwa, $periodeId, $berasPerJiwa, $nominalPerJiwa, $periodeId]
+                );
+
+                $maxPersen = 0.0;
+                foreach ($kategoriRows as $row) {
+                    $himpun = (float) ($row->total_himpun_rupiah ?? 0.0);
+                    $amil = (float) ($row->total_amil_rupiah ?? 0.0);
+                    $kuotaMaks = round($himpun * 0.125, 2);
+                    $sisaKuota = max(0.0, round($kuotaMaks - $amil, 2));
+                    $persen = $himpun > 0 ? round(($amil / $himpun) * 100, 2) : 0.0;
+
+                    if ($persen > $maxPersen) {
+                        $maxPersen = $persen;
+                    }
+
+                    $hakAmilPerKategori[] = [
+                        'jenis_dana_id' => (int) $row->jenis_dana_id,
+                        'kode_dana' => (string) $row->kode_dana,
+                        'nama_dana' => (string) $row->nama_dana,
+                        'total_himpun_rupiah' => $himpun,
+                        'total_amil_rupiah' => $amil,
+                        'kuota_maksimal_rupiah' => $kuotaMaks,
+                        'sisa_kuota_rupiah' => $sisaKuota,
+                        'persentase_amil' => $persen,
+                    ];
+                }
+
+                $persentaseHakAmil = $maxPersen;
 
                 $himpunRow = DB::connection('mysql')
                     ->selectOne(
@@ -81,12 +139,8 @@ class DashboardController extends Controller
 
             $ringkasanPeriode['jumlah_mustahik_layak'] = (int) ($mustahikRow->layak_aktif ?? 0);
             $ringkasanPeriode['jumlah_mustahik_menunggu'] = (int) ($mustahikRow->menunggu ?? 0);
-        } catch (QueryException $e) {
-            if ($rdbmsError === null) {
-                $rdbmsError = RdbmsErrorHandler::extractCleanMessage($e);
-            }
         } catch (Throwable) {
-            // Biarkan fallback ringkasan bernilai 0 bila database belum terhubung.
+            // Biarkan fallback ringkasan bernilai 0 bila layanan data belum aktif.
         }
 
         return Inertia::render('Dashboard/Index', [
@@ -94,6 +148,7 @@ class DashboardController extends Controller
             'rekapAsnaf' => $rekapAsnaf,
             'periodeAktif' => $periodeAktif,
             'persentaseHakAmil' => $persentaseHakAmil,
+            'hakAmilPerKategori' => $hakAmilPerKategori,
             'ringkasanPeriode' => $ringkasanPeriode,
             'rdbmsError' => $rdbmsError,
         ]);

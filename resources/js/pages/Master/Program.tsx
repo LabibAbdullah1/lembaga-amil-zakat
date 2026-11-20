@@ -123,7 +123,7 @@ export default function MasterProgram({
     return (
         <AuthenticatedLayout
             title="Master Program Penyaluran"
-            subtitle="Kunci kesesuaian kantong jenis_dana_id program terhadap Bukti Kas Keluar (BKK) dijaga oleh trg_before_insert_penyaluran_dana"
+            subtitle="Pengelolaan program distribusi zakat, infak, sedekah, dan wakaf beserta anggaran rencana"
         >
             <Head title="Master Program Penyaluran" />
 
@@ -140,7 +140,7 @@ export default function MasterProgram({
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Setiap BKK yang diajukan Staf Penyaluran wajib menggunakan <code className="font-mono text-xs">jenis_dana_id</code> yang identik dengan program ini.
+                                Setiap program terhubung ke satu kantong sumber dana operasional dan periode Ramadhan.
                             </CardDescription>
                         </div>
 

@@ -1,0 +1,186 @@
+import * as React from 'react';
+import { Check, CheckCircle2, Search, UserCheck, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import type { Mustahik } from '@/types';
+
+export interface SearchableMustahikOption extends Mustahik {
+    kode_asnaf: string;
+    nama_asnaf: string;
+    is_layak_syariat: number | boolean;
+}
+
+interface MustahikSearchPickerProps {
+    id?: string;
+    label?: string;
+    daftarMustahik: SearchableMustahikOption[];
+    selectedId: number;
+    onSelect: (mustahikId: number) => void;
+    excludeIds?: number[];
+}
+
+export function MustahikSearchPicker({
+    id = 'cari-nama-mustahik',
+    label = 'Ketik Nama Kepala Keluarga (KK), NIK, atau RT/RW',
+    daftarMustahik = [],
+    selectedId,
+    onSelect,
+    excludeIds = [],
+}: MustahikSearchPickerProps) {
+    const [query, setQuery] = React.useState<string>('');
+    const [openList, setOpenList] = React.useState<boolean>(false);
+
+    const selectedMustahik = React.useMemo(
+        () => daftarMustahik.find((m) => m.id === selectedId) ?? null,
+        [daftarMustahik, selectedId]
+    );
+
+    const excludedSet = React.useMemo(() => new Set(excludeIds), [excludeIds]);
+
+    const filteredCandidates = React.useMemo(() => {
+        const q = query.trim().toLowerCase();
+        const matches = daftarMustahik.filter((m) => {
+            if (q === '') return true;
+            return (
+                m.nama_lengkap.toLowerCase().includes(q) ||
+                m.nik.toLowerCase().includes(q) ||
+                m.kode_asnaf.toLowerCase().includes(q) ||
+                m.nama_asnaf.toLowerCase().includes(q) ||
+                (m.alamat_rt_rw ?? '').toLowerCase().includes(q)
+            );
+        });
+        return matches.slice(0, 30);
+    }, [daftarMustahik, query]);
+
+    return (
+        <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor={id}>{label}</Label>
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                    Terdaftar: {daftarMustahik.length} KK
+                </span>
+            </div>
+
+            <div className="relative">
+                <Search
+                    className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                    aria-hidden="true"
+                />
+                <Input
+                    id={id}
+                    type="search"
+                    autoComplete="off"
+                    placeholder="Ketik nama kepala keluarga, NIK 16 digit, atau RT/RW untuk mencari..."
+                    value={query}
+                    onFocus={() => setOpenList(true)}
+                    onChange={(e) => {
+                        setQuery(e.target.value);
+                        setOpenList(true);
+                    }}
+                    className="pl-9"
+                />
+            </div>
+
+            {/* Kotak Hasil Pencarian (Scroll Internal, Maksimal 30 Hasil Teratas) */}
+            {(openList || query.trim() !== '') && (
+                <div className="max-h-56 overflow-y-auto rounded-lg border bg-card p-1.5 shadow-sm space-y-1">
+                    {filteredCandidates.length === 0 ? (
+                        <p className="p-3 text-center text-xs text-muted-foreground">
+                            Tidak ditemukan nama KK atau NIK yang cocok dengan &quot;{query}&quot;.
+                        </p>
+                    ) : (
+                        filteredCandidates.map((m) => {
+                            const isSelected = m.id === selectedId;
+                            const isAlreadyInBkk = excludedSet.has(m.id);
+                            const layak =
+                                Number(m.is_layak_syariat) === 1 || m.is_layak_syariat === true;
+
+                            return (
+                                <button
+                                    key={m.id}
+                                    type="button"
+                                    disabled={isAlreadyInBkk}
+                                    onClick={() => {
+                                        onSelect(m.id);
+                                        setQuery(m.nama_lengkap);
+                                        setOpenList(false);
+                                    }}
+                                    className={cn(
+                                        'flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors',
+                                        isSelected
+                                            ? 'bg-accent text-accent-foreground font-semibold'
+                                            : 'hover:bg-muted',
+                                        isAlreadyInBkk && 'opacity-50'
+                                    )}
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                            {isSelected && (
+                                                <Check
+                                                    className="h-3.5 w-3.5 text-primary shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                            <span className="font-semibold text-foreground truncate">
+                                                {m.nama_lengkap}
+                                            </span>
+                                            <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0">
+                                                {m.kode_asnaf}
+                                            </Badge>
+                                        </div>
+                                        <p className="font-mono text-[11px] text-muted-foreground truncate">
+                                            NIK: {m.nik} • {m.alamat_rt_rw || 'Alamat belum diisi'}
+                                        </p>
+                                    </div>
+
+                                    <div className="shrink-0">
+                                        {isAlreadyInBkk ? (
+                                            <Badge variant="secondary">Sudah di Daftar</Badge>
+                                        ) : layak ? (
+                                            <Badge variant="success" className="text-[10px]">
+                                                <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                Layak
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="destructive" className="text-[10px]">
+                                                <XCircle className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                {m.status_verifikasi}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+
+            {/* Kartu Penerima KK yang Sedang Terpilih */}
+            {selectedMustahik && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-accent/40 px-3 py-2 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <UserCheck className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                        <div className="min-w-0">
+                            <p className="font-bold text-foreground truncate">
+                                Terpilih: {selectedMustahik.nama_lengkap} ({selectedMustahik.kode_asnaf} -{' '}
+                                {selectedMustahik.nama_asnaf})
+                            </p>
+                            <p className="font-mono text-[11px] text-muted-foreground truncate">
+                                NIK: {selectedMustahik.nik} • {selectedMustahik.alamat_rt_rw || '-'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {Number(selectedMustahik.is_layak_syariat) === 1 ||
+                    selectedMustahik.is_layak_syariat === true ? (
+                        <Badge variant="success">Layak Terima Zakat</Badge>
+                    ) : (
+                        <Badge variant="destructive">Belum Memenuhi Syarat</Badge>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}

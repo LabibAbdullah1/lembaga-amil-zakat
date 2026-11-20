@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { Head, useForm } from '@inertiajs/react';
-import { KeyRound, ShieldCheck, Smartphone, UserCheck } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft, Eye, EyeOff, KeyRound, Lock, ShieldCheck, Smartphone } from 'lucide-react';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
+import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,14 +17,25 @@ interface BeforeInstallPromptEvent extends Event {
     userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+    Admin: 'Administrator DKM',
+    Amil_Penerima: 'Kasir Loket ZIS',
+    Verifikator: 'Tim Survei Mustahik',
+    Staf_Penyaluran: 'Staf Program & BKK',
+    Ketua_DKM: 'Ketua DKM / Penyetuju',
+};
+
 export default function Login() {
     const [installPrompt, setInstallPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
+    const [showPassword, setShowPassword] = React.useState<boolean>(false);
+    const [lockoutRemaining, setLockoutRemaining] = React.useState<number>(0);
 
     const { data, setData, post, processing, errors, reset } = useForm<{
         identitas: string;
         password: string;
         remember: boolean;
         rdbms?: string;
+        lockout_seconds?: string;
     }>({
         identitas: '',
         password: '',
@@ -41,8 +54,24 @@ export default function Login() {
         };
     }, []);
 
+    React.useEffect(() => {
+        const rawSec = Number.parseInt(String(errors.lockout_seconds ?? '0'), 10);
+        if (!Number.isNaN(rawSec) && rawSec > 0) {
+            setLockoutRemaining(rawSec);
+        }
+    }, [errors.lockout_seconds]);
+
+    React.useEffect(() => {
+        if (lockoutRemaining <= 0) return;
+        const timer = window.setInterval(() => {
+            setLockoutRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [lockoutRemaining]);
+
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (lockoutRemaining > 0) return;
         post('/login');
     };
 
@@ -52,87 +81,119 @@ export default function Login() {
         setInstallPrompt(null);
     };
 
+    const formatLockoutTime = (seconds: number): string => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
     return (
         <div className="min-h-screen flex flex-col bg-background text-foreground">
-            <Head title="Masuk Sistem Panitia ZIS & Zakat Fitrah" />
+            <Head title="Masuk Portal Panitia ZIS & Zakat Fitrah" />
             <OfflineBanner />
 
-            <header className="border-b bg-card">
-                <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
-                    <div className="flex items-center gap-3">
+            <header className="border-b bg-card/95 backdrop-blur-xs">
+                <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
+                    <Link
+                        href="/transparansi"
+                        className="flex items-center gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
                         <img
                             src="/icons/icon.svg"
-                            alt="Logo SI-LAZ Masjid"
-                            width={36}
-                            height={36}
+                            alt="Logo LAZ Masjid"
+                            width={38}
+                            height={38}
                             fetchPriority="high"
-                            className="h-9 w-9 rounded-lg"
+                            className="h-9 w-9 rounded-lg shadow-2xs"
                         />
                         <div>
-                            <p className="text-sm font-bold tracking-tight">SI-LAZ & Zakat Fitrah Masjid</p>
-                            <p className="text-xs text-muted-foreground">Portal Internal Panitia & DKM</p>
+                            <p className="text-sm font-bold tracking-tight">LAZ & Zakat Fitrah Masjid</p>
+                            <p className="text-xs text-muted-foreground">Lembaga Amil Zakat, Infak & Sedekah</p>
                         </div>
-                    </div>
+                    </Link>
 
-                    {installPrompt && (
-                        <Button type="button" variant="outline" size="sm" onClick={handleInstallPwa}>
-                            <Smartphone className="h-4 w-4" aria-hidden="true" />
-                            <span>Install di HP</span>
+                    <div className="flex items-center gap-2">
+                        <UserGuideDialog
+                            currentRole="Amil_Penerima"
+                            triggerVariant="outline"
+                            triggerLabel="Panduan Panitia"
+                        />
+                        {installPrompt && (
+                            <Button type="button" variant="outline" size="sm" onClick={handleInstallPwa}>
+                                <Smartphone className="h-4 w-4" aria-hidden="true" />
+                                <span className="hidden sm:inline">Pasang di HP</span>
+                            </Button>
+                        )}
+                        <Button asChild variant="ghost" size="sm">
+                            <Link href="/transparansi">
+                                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                                <span>Transparansi Publik</span>
+                            </Link>
                         </Button>
-                    )}
+                    </div>
                 </div>
             </header>
 
-            <main className="mx-auto flex flex-1 w-full max-w-5xl items-center justify-center px-4 py-8 sm:px-6">
-                <div className="grid w-full gap-8 lg:grid-cols-12 lg:items-center">
-                    <section className="lg:col-span-6 space-y-4">
-                        <div className="space-y-2">
-                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                                Autentikasi Panitia Amil Zakat & DKM
+            <main className="mx-auto flex flex-1 w-full max-w-6xl items-center justify-center px-4 py-10 sm:px-6 laz-page-enter">
+                <div className="grid w-full gap-10 lg:grid-cols-12 lg:items-center">
+                    <section className="lg:col-span-6 space-y-6">
+                        <div className="space-y-3">
+                            <Badge variant="success">Portal Operasional Resmi</Badge>
+                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+                                Pengelolaan Zakat Fitrah, Zakat Mal, Infak, dan Wakaf Masjid
                             </h1>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                Masuk menggunakan akun resmi pada tabel <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">pengguna_sistem</code>. Setiap tindakan operasional akan menyuntikkan identitas <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">@app_user</code> ke dalam <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">log_audit_zis</code>.
+                            <p className="text-sm text-muted-foreground leading-relaxed sm:text-base">
+                                Sistem pelayanan terpadu untuk pencatatan penerimaan loket zakat, verifikasi kelayakan mustahik 8 asnaf, serta persetujuan penyaluran dana secara amanah dan akuntabel.
                             </p>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-lg border bg-card p-3.5 space-y-1">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                                    <UserCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-                                    <span>Otorisasi 5 Peran (RBAC)</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Admin, Amil_Penerima, Verifikator, Staf_Penyaluran, dan Ketua_DKM.
-                                </p>
+                        <div className="rounded-xl border bg-card p-5 shadow-2xs space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold">
+                                <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+                                <span>Akses Terotorisasi Pengurus & Panitia</span>
                             </div>
-
-                            <div className="rounded-lg border bg-card p-3.5 space-y-1">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                                    <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-                                    <span>Kepatuhan Syariat RDBMS</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Hanya akun dengan status_aktif = 1 dan hash Bcrypt valid yang diizinkan mengakses loket.
-                                </p>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.values(ROLE_LABELS).map((label) => (
+                                    <Badge key={label} variant="secondary">
+                                        {label}
+                                    </Badge>
+                                ))}
                             </div>
+                            <p className="text-xs text-muted-foreground">
+                                Dilengkapi perlindungan anti-brute-force otomatis. Akun akan dikunci sementara selama 15 menit setelah 5 kali percobaan kata sandi gagal berturut-turut.
+                            </p>
                         </div>
                     </section>
 
                     <section className="lg:col-span-6">
-                        <Card className="mx-auto w-full max-w-md">
-                            <CardHeader>
+                        <Card className="mx-auto w-full max-w-md shadow-sm">
+                            <CardHeader className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="text-lg">Masuk ke Akun Panitia</CardTitle>
-                                    <Badge variant="outline">zis_aplikasi</Badge>
+                                    <CardTitle className="text-xl">Masuk Akun Panitia</CardTitle>
+                                    <Lock className="h-4 w-4 text-primary" aria-hidden="true" />
                                 </div>
                                 <CardDescription>
-                                    Masukkan username atau alamat email beserta kata sandi Anda.
+                                    Gunakan username atau email resmi yang terdaftar di sekretariat DKM.
                                 </CardDescription>
                             </CardHeader>
 
                             <form onSubmit={handleSubmit} noValidate>
                                 <CardContent className="space-y-4">
                                     <RdbmsAlert message={errors.rdbms} />
+
+                                    {lockoutRemaining > 0 && (
+                                        <Alert variant="destructive">
+                                            <Lock className="h-4 w-4" aria-hidden="true" />
+                                            <AlertTitle>Akses Masuk Dikunci Sementara</AlertTitle>
+                                            <AlertDescription className="mt-1 text-xs">
+                                                Terlalu banyak percobaan gagal. Silakan tunggu{' '}
+                                                <strong className="font-mono tabular-nums">
+                                                    {formatLockoutTime(lockoutRemaining)}
+                                                </strong>{' '}
+                                                sebelum mencoba kembali.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
 
                                     <div className="space-y-2">
                                         <Label htmlFor="identitas">Username atau Email</Label>
@@ -143,6 +204,7 @@ export default function Login() {
                                             autoComplete="username"
                                             autoFocus
                                             required
+                                            disabled={lockoutRemaining > 0 || processing}
                                             placeholder="Masukkan username atau email"
                                             value={data.identitas}
                                             onChange={(e) => setData('identitas', e.target.value)}
@@ -157,17 +219,37 @@ export default function Login() {
 
                                     <div className="space-y-2">
                                         <Label htmlFor="password">Kata Sandi</Label>
-                                        <Input
-                                            id="password"
-                                            name="password"
-                                            type="password"
-                                            autoComplete="current-password"
-                                            required
-                                            placeholder="Masukkan kata sandi"
-                                            value={data.password}
-                                            onChange={(e) => setData('password', e.target.value)}
-                                            aria-invalid={Boolean(errors.password)}
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                id="password"
+                                                name="password"
+                                                type={showPassword ? 'text' : 'password'}
+                                                autoComplete="current-password"
+                                                required
+                                                disabled={lockoutRemaining > 0 || processing}
+                                                placeholder="Masukkan kata sandi"
+                                                value={data.password}
+                                                onChange={(e) => setData('password', e.target.value)}
+                                                aria-invalid={Boolean(errors.password)}
+                                                className="pr-11"
+                                            />
+                                            <button
+                                                type="button"
+                                                aria-label={
+                                                    showPassword
+                                                        ? 'Sembunyikan kata sandi'
+                                                        : 'Tampilkan kata sandi'
+                                                }
+                                                onClick={() => setShowPassword((prev) => !prev)}
+                                                className="absolute right-2.5 top-2.5 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" aria-hidden="true" />
+                                                )}
+                                            </button>
+                                        </div>
                                         {errors.password && (
                                             <p role="alert" className="text-xs font-medium text-destructive">
                                                 {errors.password}
@@ -184,6 +266,7 @@ export default function Login() {
                                                 id="remember"
                                                 name="remember"
                                                 type="checkbox"
+                                                disabled={lockoutRemaining > 0 || processing}
                                                 checked={data.remember}
                                                 onChange={(e) => setData('remember', e.target.checked)}
                                                 className="h-4 w-4 rounded border-input accent-primary focus:ring-2 focus:ring-ring"
@@ -196,9 +279,19 @@ export default function Login() {
                                 <Separator />
 
                                 <CardFooter className="pt-5">
-                                    <Button type="submit" className="w-full" disabled={processing}>
+                                    <Button
+                                        type="submit"
+                                        className="w-full"
+                                        disabled={processing || lockoutRemaining > 0}
+                                    >
                                         <KeyRound className="h-4 w-4" aria-hidden="true" />
-                                        <span>{processing ? 'Memverifikasi Kredensial...' : 'Masuk Sistem'}</span>
+                                        <span>
+                                            {lockoutRemaining > 0
+                                                ? `Terkunci (${formatLockoutTime(lockoutRemaining)})`
+                                                : processing
+                                                  ? 'Memverifikasi Akun...'
+                                                  : 'Masuk ke Portal Panitia'}
+                                        </span>
                                     </Button>
                                 </CardFooter>
                             </form>
@@ -208,9 +301,9 @@ export default function Login() {
             </main>
 
             <footer className="border-t bg-card py-4">
-                <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
-                    <span>Sistem Informasi Lembaga Amil Zakat (LAZ / ZIS) & Zakat Fitrah Masjid</span>
-                    <span>Tabel Autentikasi: pengguna_sistem (password_hash)</span>
+                <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
+                    <span>Lembaga Amil Zakat (LAZ) & Panitia Zakat Fitrah Masjid</span>
+                    <span>Akses Terlindungi Enkripsi & Pembatasan Percobaan Login</span>
                 </div>
             </footer>
         </div>

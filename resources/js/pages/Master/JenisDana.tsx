@@ -137,10 +137,10 @@ export default function MasterJenisDana({
 
     return (
         <AuthenticatedLayout
-            title="Hierarki Kantong Jenis Dana (3 Level)"
-            subtitle="Saldo uang & beras bersifat Read-Only di aplikasi dan hanya dapat berubah melalui Stored Procedure & Trigger RDBMS"
+            title="Hierarki Kantong Dana Zakat (Fitrah & Mal)"
+            subtitle="Pengelolaan struktur kantong dana Zakat Fitrah dan Zakat Mal beserta posisi saldo terkini"
         >
-            <Head title="Hierarki Jenis Dana" />
+            <Head title="Hierarki Jenis Dana Zakat" />
 
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
@@ -151,11 +151,11 @@ export default function MasterJenisDana({
                             <div className="flex items-center gap-2">
                                 <FolderTree className="h-5 w-5 text-primary" aria-hidden="true" />
                                 <CardTitle className="text-lg">
-                                    Pohon Hierarki Jenis Dana ({pohonHierarki.length})
+                                    Pohon Hierarki Kantong Dana Zakat ({pohonHierarki.length})
                                 </CardTitle>
                             </div>
                             <CardDescription>
-                                Mendukung 3 level hierarki self-referencing (<code className="font-mono text-xs">parent_id</code>). Kolom saldo dikunci dari mutasi langsung di PHP.
+                                Struktur kantong dana zakat berjenjang (Zakat Fitrah, Zakat Mal, Zakat Profesi, Zakat Perniagaan). Nilai saldo uang dan beras diperbarui secara otomatis dari transaksi penerimaan dan penyaluran.
                             </CardDescription>
                         </div>
 
@@ -179,10 +179,9 @@ export default function MasterJenisDana({
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Hierarki & Nama Kantong Dana</TableHead>
+                                                <TableHead>Hierarki & Nama Kantong Dana Zakat</TableHead>
                                                 <TableHead>Kode</TableHead>
-                                                <TableHead>Kategori Utama</TableHead>
-                                                <TableHead>Sifat Dana</TableHead>
+                                                <TableHead>Kategori</TableHead>
                                                 <TableHead className="text-right">
                                                     <span className="inline-flex items-center gap-1">
                                                         <Lock className="h-3 w-3" aria-hidden="true" />
@@ -222,20 +221,9 @@ export default function MasterJenisDana({
                                                             {row.kode_dana}
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Badge
-                                                                variant={
-                                                                    row.kategori_utama === 'Zakat'
-                                                                        ? 'success'
-                                                                        : row.kategori_utama === 'Infak_Sedekah'
-                                                                          ? 'warning'
-                                                                          : 'secondary'
-                                                                }
-                                                            >
-                                                                {row.kategori_utama.replace('_', ' ')}
+                                                            <Badge variant="success">
+                                                                Zakat (8 Asnaf)
                                                             </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-xs">
-                                                            {terikat ? 'Terikat (Muqayyad)' : 'Tidak Terikat (Mutlaq)'}
                                                         </TableCell>
                                                         <TableCell className="text-right font-semibold tabular-nums">
                                                             {formatRupiah(row.saldo_tersedia)}
@@ -356,7 +344,7 @@ export default function MasterJenisDana({
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label htmlFor="kode_dana">Kode Dana</Label>
+                                <Label htmlFor="kode_dana">Kode Dana Zakat</Label>
                                 <Input
                                     id="kode_dana"
                                     required
@@ -370,29 +358,19 @@ export default function MasterJenisDana({
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label htmlFor="kategori_utama_select">Kategori Utama</Label>
-                                <Select
-                                    value={data.kategori_utama}
-                                    onValueChange={(val) => setData('kategori_utama', val as KategoriUtamaDana)}
-                                >
-                                    <SelectTrigger id="kategori_utama_select">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Zakat">Zakat</SelectItem>
-                                        <SelectItem value="Infak_Sedekah">Infak & Sedekah</SelectItem>
-                                        <SelectItem value="Wakaf">Wakaf</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label>Kategori Syariat</Label>
+                                <div className="flex h-11 items-center rounded-md border bg-muted/40 px-3 text-xs font-semibold text-primary">
+                                    Zakat Wajib (8 Asnaf)
+                                </div>
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="nama_dana">Nama Kantong Dana</Label>
+                            <Label htmlFor="nama_dana">Nama Kantong Dana Zakat</Label>
                             <Input
                                 id="nama_dana"
                                 required
-                                placeholder="Masukkan nama kantong dana"
+                                placeholder="Contoh: Zakat Fitrah / Zakat Mal Profesi"
                                 value={data.nama_dana}
                                 onChange={(e) => setData('nama_dana', e.target.value)}
                             />
@@ -400,20 +378,6 @@ export default function MasterJenisDana({
                                 <p className="text-xs text-destructive">{errors.nama_dana}</p>
                             )}
                         </div>
-
-                        <label
-                            htmlFor="is_terikat_checkbox"
-                            className="flex items-center gap-2 rounded-md border p-3 text-xs font-medium"
-                        >
-                            <input
-                                id="is_terikat_checkbox"
-                                type="checkbox"
-                                checked={data.is_terikat}
-                                onChange={(e) => setData('is_terikat', e.target.checked)}
-                                className="h-4 w-4 rounded accent-primary"
-                            />
-                            <span>Dana Terikat Syariat / Program Khusus (is_terikat = 1)</span>
-                        </label>
 
                         <DialogFooter>
                             <Button

@@ -29,33 +29,32 @@ class RdbmsErrorHandler
 
         // Tangkap pelanggaran UNIQUE constraint (SQLSTATE 23000 / error 1062).
         if ($sqlState === '23000' && $driverCode === 1062) {
-            if (preg_match("/Duplicate entry '([^']+)' for key '([^']+)'/i", $rawDriverMessage, $matches)) {
+            if (preg_match("/Duplicate entry '([^']+)'/i", $rawDriverMessage, $matches)) {
                 return sprintf(
-                    'PENOLAKAN DUPLIKASI DATA: Nilai "%s" sudah terdaftar pada indeks "%s".',
-                    $matches[1],
-                    $matches[2]
+                    'Data "%s" sudah terdaftar di dalam sistem. Gunakan nilai yang berbeda.',
+                    $matches[1]
                 );
             }
 
-            return 'PENOLAKAN DUPLIKASI DATA: Data dengan identitas unik (NIK, Kode, atau Nomor Dokumen) tersebut sudah terdaftar.';
+            return 'Data dengan identitas unik (NIK, Kode, atau Nomor Dokumen) tersebut sudah terdaftar.';
         }
 
         // Tangkap pelanggaran CHECK constraint di MariaDB (error 4025 / SQLSTATE 23000).
         if ($driverCode === 4025) {
-            return 'PENOLAKAN CONSTRAINT RDBMS: Nilai yang dimasukkan melanggar batas validasi database (misal: saldo atau nominal tidak boleh negatif).';
+            return 'Nilai yang dimasukkan tidak memenuhi ketentuan (saldo atau nominal tidak boleh bernilai negatif).';
         }
 
         // Tangkap pelanggaran FOREIGN KEY constraint (error 1451 / 1452).
         if ($driverCode === 1451 || $driverCode === 1452) {
-            return 'PENOLAKAN INTEGRITAS REFERENSIAL: Data ini masih terhubung dengan transaksi lain atau referensi induk tidak valid.';
+            return 'Data ini tidak dapat diubah atau dihapus karena masih terhubung dengan transaksi aktif.';
         }
 
-        // Tangkap penolakan hak akses akun database (misal zis_laporan mencoba akses tabel langsung: error 1142).
+        // Tangkap penolakan hak akses akun database (error 1142).
         if ($driverCode === 1142) {
-            return 'PENOLAKAN OTORISASI DATABASE (ERROR 1142): Akun koneksi database tidak memiliki hak akses pada objek tersebut.';
+            return 'Akses ditolak: Akun layanan laporan hanya diizinkan membaca data ringkasan publik.';
         }
 
-        return 'KESALAHAN DATABASE: ' . trim($rawDriverMessage);
+        return 'Permintaan tidak dapat diproses saat ini. Silakan periksa kembali data yang Anda masukkan.';
     }
 
     public static function redirectWithError(QueryException $e, string $errorKey = 'rdbms'): RedirectResponse

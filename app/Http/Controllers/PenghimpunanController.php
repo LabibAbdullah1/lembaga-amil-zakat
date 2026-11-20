@@ -19,8 +19,10 @@ class PenghimpunanController extends Controller
     {
         $statusFilter = trim((string) $request->query('status', 'SEMUA'));
         $search = trim((string) $request->query('q', ''));
+        $selectedMuzakiId = max(0, (int) $request->query('muzaki_id', 0));
         $page = max(1, (int) $request->query('page', 1));
-        $perPage = 15;
+        $requestedLimit = (int) $request->query('per_page', 15);
+        $perPage = in_array($requestedLimit, [10, 15, 25, 50, 100], true) ? $requestedLimit : 15;
         $offset = ($page - 1) * $perPage;
 
         $daftarMuzaki = [];
@@ -43,17 +45,43 @@ class PenghimpunanController extends Controller
                         fn_hitung_jiwa_muzaki(m.id) AS jumlah_jiwa
                  FROM muzaki m
                  ORDER BY m.nama_lengkap ASC
-                 LIMIT 300'
+                 LIMIT 2000'
             );
 
-            // Hanya tampilkan sub-dana leaf/operasional (yang tidak memiliki anak sub-dana lagi).
+            if ($selectedMuzakiId > 0) {
+                $existsInList = false;
+                foreach ($daftarMuzaki as $mRow) {
+                    if ((int) $mRow->id === $selectedMuzakiId) {
+                        $existsInList = true;
+                        break;
+                    }
+                }
+
+                if (! $existsInList) {
+                    $targetMuzaki = DB::connection('mysql')->selectOne(
+                        'SELECT m.id, m.nik, m.nama_lengkap, m.no_hp, m.alamat_rt_rw, m.jenis_muzaki,
+                                fn_hitung_jiwa_muzaki(m.id) AS jumlah_jiwa
+                         FROM muzaki m
+                         WHERE m.id = ?
+                         LIMIT 1',
+                        [$selectedMuzakiId]
+                    );
+
+                    if ($targetMuzaki) {
+                        array_unshift($daftarMuzaki, $targetMuzaki);
+                    }
+                }
+            }
+
+            // Hanya tampilkan sub-dana leaf/operasional khusus Zakat.
             $daftarDanaOperasional = DB::connection('mysql')->select(
-                'SELECT jd.id, jd.parent_id, p.nama_dana AS nama_induk, jd.kode_dana, jd.nama_dana,
+                "SELECT jd.id, jd.parent_id, p.nama_dana AS nama_induk, jd.kode_dana, jd.nama_dana,
                         jd.kategori_utama, jd.is_terikat, jd.saldo_tersedia, jd.saldo_beras_kg
                  FROM jenis_dana jd
                  LEFT JOIN jenis_dana p ON p.id = jd.parent_id
-                 WHERE NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
-                 ORDER BY jd.kategori_utama ASC, jd.kode_dana ASC'
+                 WHERE jd.kategori_utama = 'Zakat'
+                   AND NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jd.id)
+                 ORDER BY jd.kode_dana ASC"
             );
 
             $whereClause = ' WHERE 1=1';
@@ -98,12 +126,13 @@ class PenghimpunanController extends Controller
                   LIMIT ? OFFSET ?',
                 [...$bindings, $perPage, $offset]
             );
-        } catch (Throwable $e) {
-            $rdbmsError = 'Gagal memuat data loket penghimpunan: ' . $e->getMessage();
+        } catch (Throwable) {
+            $riwayatKwitansi = [];
         }
 
         return Inertia::render('Loket/Index', [
             'daftarMuzaki' => $daftarMuzaki,
+            'selectedMuzakiId' => $selectedMuzakiId,
             'daftarDanaOperasional' => $daftarDanaOperasional,
             'periodeAktif' => $periodeAktif,
             'riwayatKwitansi' => $riwayatKwitansi,
@@ -116,6 +145,7 @@ class PenghimpunanController extends Controller
             'filters' => [
                 'status' => $statusFilter,
                 'q' => $search,
+                'per_page' => $perPage,
             ],
             'saranNoKwitansi' => $this->generateNoKwitansi(),
             'rdbmsError' => $rdbmsError,

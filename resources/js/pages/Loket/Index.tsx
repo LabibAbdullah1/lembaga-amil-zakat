@@ -10,6 +10,7 @@ import {
     Search,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
+import { MuzakiSearchPicker } from '@/components/zis/MuzakiSearchPicker';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,7 @@ interface KwitansiRow {
 
 interface LoketIndexProps {
     daftarMuzaki: MuzakiWithJiwa[];
+    selectedMuzakiId?: number;
     daftarDanaOperasional: DanaOperasionalRow[];
     periodeAktif: PeriodeRamadhan | null;
     riwayatKwitansi: KwitansiRow[];
@@ -88,6 +90,7 @@ interface LoketIndexProps {
     filters: {
         status: string;
         q: string;
+        per_page?: number;
     };
     saranNoKwitansi: string;
     rdbmsError?: string | null;
@@ -97,6 +100,7 @@ const METODE_BAYAR_LIST: MetodeBayar[] = ['Tunai', 'Transfer', 'QRIS', 'Beras', 
 
 export default function LoketIndex({
     daftarMuzaki = [],
+    selectedMuzakiId = 0,
     daftarDanaOperasional = [],
     periodeAktif,
     riwayatKwitansi = [],
@@ -110,6 +114,9 @@ export default function LoketIndex({
     );
     const [searchQuery, setSearchQuery] = React.useState<string>(filters?.q ?? '');
     const [statusFilter, setStatusFilter] = React.useState<string>(filters?.status ?? 'SEMUA');
+    const [perPageLimit, setPerPageLimit] = React.useState<number>(
+        filters?.per_page ?? pagination?.per_page ?? 15
+    );
     const [voidTarget, setVoidTarget] = React.useState<KwitansiRow | null>(null);
 
     React.useEffect(() => {
@@ -123,7 +130,14 @@ export default function LoketIndex({
         };
     }, []);
 
-    const defaultMuzaki = daftarMuzaki[0] ?? null;
+    const defaultMuzaki = React.useMemo(() => {
+        if (selectedMuzakiId && selectedMuzakiId > 0) {
+            const matched = daftarMuzaki.find((m) => Number(m.id) === Number(selectedMuzakiId));
+            if (matched) return matched;
+        }
+        return daftarMuzaki[0] ?? null;
+    }, [daftarMuzaki, selectedMuzakiId]);
+
     const defaultDana = daftarDanaOperasional[0] ?? null;
     const tarifFitrah = Number(periodeAktif?.nominal_fitrah_per_jiwa ?? 45000);
     const takaranBeras = Number(periodeAktif?.beras_per_jiwa_kg ?? 2.5);
@@ -139,14 +153,38 @@ export default function LoketIndex({
         berat_beras_kg: string;
     }>({
         no_kwitansi: saranNoKwitansi,
-        muzaki_id: defaultMuzaki?.id ?? 0,
-        periode_id: periodeAktif?.id ?? 0,
+        muzaki_id: defaultMuzaki ? Number(defaultMuzaki.id) : 0,
+        periode_id: periodeAktif ? Number(periodeAktif.id) : 0,
         metode_bayar: 'Tunai',
-        jenis_dana_id: defaultDana?.id ?? 0,
-        jumlah_jiwa: defaultMuzaki?.jumlah_jiwa ?? 1,
-        nominal: String((defaultMuzaki?.jumlah_jiwa ?? 1) * tarifFitrah),
+        jenis_dana_id: defaultDana ? Number(defaultDana.id) : 0,
+        jumlah_jiwa: defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1,
+        nominal: String((defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1) * tarifFitrah),
         berat_beras_kg: '0',
     });
+
+    // Pastikan jika pengguna berpindah dari halaman Detail Muzaki (/loket?muzaki_id=...),
+    // Muzaki tersebut otomatis terpilih beserta jumlah jiwa dan saran nominalnya
+    React.useEffect(() => {
+        if (selectedMuzakiId && selectedMuzakiId > 0) {
+            const matched = daftarMuzaki.find((m) => Number(m.id) === Number(selectedMuzakiId));
+            if (matched) {
+                const jiwa = Math.max(1, Number(matched.jumlah_jiwa));
+                setData((prev) => ({
+                    ...prev,
+                    muzaki_id: Number(matched.id),
+                    jumlah_jiwa: jiwa,
+                    nominal:
+                        prev.metode_bayar === 'Beras'
+                            ? '0'
+                            : String(jiwa * tarifFitrah),
+                    berat_beras_kg:
+                        prev.metode_bayar === 'Beras'
+                            ? (jiwa * takaranBeras).toFixed(2)
+                            : '0',
+                }));
+            }
+        }
+    }, [selectedMuzakiId, daftarMuzaki, tarifFitrah, takaranBeras]);
 
     const voidForm = useForm<{ alasan_batal: string }>({
         alasan_batal: '',
@@ -200,9 +238,8 @@ export default function LoketIndex({
         }
     };
 
-    const handleSelectMuzaki = (muzakiIdStr: string) => {
-        const idNum = Number.parseInt(muzakiIdStr, 10);
-        const found = daftarMuzaki.find((m) => m.id === idNum);
+    const handleSelectMuzaki = (idNum: number) => {
+        const found = daftarMuzaki.find((m) => Number(m.id) === Number(idNum));
         const jiwa = found ? Math.max(1, Number(found.jumlah_jiwa)) : 1;
 
         setData('muzaki_id', idNum);
@@ -227,7 +264,13 @@ export default function LoketIndex({
         event.preventDefault();
         router.get(
             '/loket',
-            { q: searchQuery, status: statusFilter, page: 1 },
+            {
+                q: searchQuery,
+                status: statusFilter,
+                per_page: perPageLimit,
+                muzaki_id: selectedMuzakiId || undefined,
+                page: 1,
+            },
             { preserveState: true, replace: true }
         );
     };
@@ -235,7 +278,13 @@ export default function LoketIndex({
     const handlePageChange = (newPage: number) => {
         router.get(
             '/loket',
-            { q: searchQuery, status: statusFilter, page: newPage },
+            {
+                q: searchQuery,
+                status: statusFilter,
+                per_page: perPageLimit,
+                muzaki_id: selectedMuzakiId || undefined,
+                page: newPage,
+            },
             { preserveState: true }
         );
     };
@@ -254,10 +303,10 @@ export default function LoketIndex({
 
     return (
         <AuthenticatedLayout
-            title="Loket Penghimpunan Cepat (POS ZIS & Zakat Fitrah)"
-            subtitle="Setoran dicatat atomik melalui CALL sp_terima_zis_fitrah(...) dan pembatalan (void) melalui CALL sp_batalkan_penghimpunan(...)"
+            title="Loket Penerimaan Zakat Fitrah & Zakat Mal"
+            subtitle="Pencatatan cepat penerimaan zakat fitrah (uang/beras) dan zakat mal beserta cetak kwitansi resmi"
         >
-            <Head title="Loket Penghimpunan ZIS & Fitrah" />
+            <Head title="Loket Penerimaan Zakat" />
 
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
@@ -271,13 +320,13 @@ export default function LoketIndex({
                                     <div className="flex items-center gap-2">
                                         <HandCoins className="h-5 w-5 text-primary" aria-hidden="true" />
                                         <CardTitle className="text-base">
-                                            Form Setoran ZIS / Fitrah Cepat
+                                            Form Setoran Zakat Fitrah & Mal
                                         </CardTitle>
                                     </div>
-                                    <Badge variant="outline">sp_terima_zis_fitrah</Badge>
+                                    <Badge variant="success">Khusus Zakat</Badge>
                                 </div>
                                 <CardDescription>
-                                    Pilih Muzaki untuk menarik otomatis <code className="font-mono text-xs">fn_hitung_jiwa_muzaki</code> dan saran kalkulasi zakat fitrah.
+                                    Pilih Muzaki untuk mengisi otomatis jumlah jiwa keluarga dan saran nominal zakat fitrah.
                                 </CardDescription>
                             </CardHeader>
 
@@ -285,10 +334,10 @@ export default function LoketIndex({
                                 {!periodeAktif ? (
                                     <div className="rounded-lg border border-dashed p-6 text-center space-y-2">
                                         <p className="text-sm font-semibold text-destructive">
-                                            Tidak Ada Periode Ramadhan Aktif
+                                            Belum Ada Periode Ramadhan Aktif
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            Hubungi Admin untuk mengaktifkan 1 baris periode_ramadhan sebelum menerima transaksi loket.
+                                            Hubungi Administrator untuk mengaktifkan periode Ramadhan sebelum mencatat transaksi loket.
                                         </p>
                                     </div>
                                 ) : (
@@ -314,22 +363,17 @@ export default function LoketIndex({
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <Label htmlFor="muzaki_select">Pilih Muzaki / Kepala Keluarga</Label>
-                                            <Select
-                                                value={data.muzaki_id ? String(data.muzaki_id) : ''}
-                                                onValueChange={handleSelectMuzaki}
-                                            >
-                                                <SelectTrigger id="muzaki_select">
-                                                    <SelectValue placeholder="Pilih Muzaki terdaftar" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {daftarMuzaki.map((m) => (
-                                                        <SelectItem key={m.id} value={String(m.id)}>
-                                                            {m.nama_lengkap} ({m.nik}) • {m.jumlah_jiwa} jiwa
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <MuzakiSearchPicker
+                                                id="muzaki_search_loket"
+                                                label="Pilih Muzaki / Kepala Keluarga"
+                                                daftarMuzaki={daftarMuzaki}
+                                                selectedId={data.muzaki_id}
+                                                onSelect={handleSelectMuzaki}
+                                                isPreselectedFromDetail={
+                                                    Boolean(selectedMuzakiId) &&
+                                                    Number(selectedMuzakiId) === Number(data.muzaki_id)
+                                                }
+                                            />
                                             {errors.muzaki_id && (
                                                 <p className="text-xs text-destructive">{errors.muzaki_id}</p>
                                             )}
@@ -484,7 +528,7 @@ export default function LoketIndex({
                                                 {!isOnline
                                                     ? 'Perangkat Offline (Transaksi Dikunci)'
                                                     : processing
-                                                      ? 'Memproses sp_terima_zis_fitrah...'
+                                                      ? 'Menyimpan Kwitansi...'
                                                       : 'Simpan Kwitansi Setoran'}
                                             </span>
                                         </Button>
@@ -504,7 +548,7 @@ export default function LoketIndex({
                                             Riwayat Kwitansi Penghimpunan ({pagination?.total ?? 0})
                                         </CardTitle>
                                         <CardDescription>
-                                            Kwitansi tidak pernah dihapus fisik; gunakan tombol Void untuk memanggil <code className="font-mono text-xs">sp_batalkan_penghimpunan</code>.
+                                            Daftar kwitansi penerimaan sah dan riwayat pembatalan (void) beserta unduhan bukti cetak PDF.
                                         </CardDescription>
                                     </div>
                                 </div>
@@ -512,7 +556,7 @@ export default function LoketIndex({
 
                             <CardContent className="space-y-4">
                                 <form onSubmit={handleFilterRiwayat} className="grid gap-2.5 sm:grid-cols-12">
-                                    <div className="sm:col-span-6">
+                                    <div className="sm:col-span-5">
                                         <Label htmlFor="cari-kwitansi" className="sr-only">
                                             Cari No. Kwitansi atau Nama Muzaki
                                         </Label>
@@ -532,14 +576,20 @@ export default function LoketIndex({
                                         </div>
                                     </div>
 
-                                    <div className="sm:col-span-4">
+                                    <div className="sm:col-span-3">
                                         <Select
                                             value={statusFilter}
                                             onValueChange={(val) => {
                                                 setStatusFilter(val);
                                                 router.get(
                                                     '/loket',
-                                                    { q: searchQuery, status: val, page: 1 },
+                                                    {
+                                                        q: searchQuery,
+                                                        status: val,
+                                                        per_page: perPageLimit,
+                                                        muzaki_id: selectedMuzakiId || undefined,
+                                                        page: 1,
+                                                    },
                                                     { preserveState: true, replace: true }
                                                 );
                                             }}
@@ -556,6 +606,38 @@ export default function LoketIndex({
                                     </div>
 
                                     <div className="sm:col-span-2">
+                                        <Select
+                                            value={String(perPageLimit)}
+                                            onValueChange={(val) => {
+                                                const limitNum = Number.parseInt(val, 10) || 15;
+                                                setPerPageLimit(limitNum);
+                                                router.get(
+                                                    '/loket',
+                                                    {
+                                                        q: searchQuery,
+                                                        status: statusFilter,
+                                                        per_page: limitNum,
+                                                        muzaki_id: selectedMuzakiId || undefined,
+                                                        page: 1,
+                                                    },
+                                                    { preserveState: true, replace: true }
+                                                );
+                                            }}
+                                        >
+                                            <SelectTrigger aria-label="Batas tampilan baris kwitansi">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="10">10 baris</SelectItem>
+                                                <SelectItem value="15">15 baris</SelectItem>
+                                                <SelectItem value="25">25 baris</SelectItem>
+                                                <SelectItem value="50">50 baris</SelectItem>
+                                                <SelectItem value="100">100 baris</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="sm:col-span-2">
                                         <Button type="submit" variant="secondary" className="w-full">
                                             Filter
                                         </Button>
@@ -566,14 +648,14 @@ export default function LoketIndex({
                                     <div className="rounded-lg border border-dashed p-8 text-center space-y-1">
                                         <p className="text-sm font-semibold">Belum ada data kwitansi penghimpunan</p>
                                         <p className="text-xs text-muted-foreground">
-                                            Kwitansi yang baru disimpan melalui sp_terima_zis_fitrah akan langsung tampil di sini.
+                                            Kwitansi penerimaan yang baru disimpan akan langsung tampil pada daftar ini.
                                         </p>
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="hidden md:block rounded-lg border">
+                                        <div className="hidden md:block max-h-[540px] overflow-y-auto rounded-lg border">
                                             <Table>
-                                                <TableHeader>
+                                                <TableHeader className="sticky top-0 z-10 bg-card shadow-2xs">
                                                     <TableRow>
                                                         <TableHead>No. Kwitansi & Tanggal</TableHead>
                                                         <TableHead>Muzaki & Kantong Dana</TableHead>
@@ -779,7 +861,7 @@ export default function LoketIndex({
                             Batalkan (Void) Kwitansi {voidTarget?.no_kwitansi}
                         </DialogTitle>
                         <DialogDescription>
-                            Prosedur <code className="font-mono text-xs">CALL sp_batalkan_penghimpunan(?, ?)</code> akan mengubah status menjadi <code className="font-mono text-xs">Dibatalkan</code>, membalikkan saldo uang/beras pada <code className="font-mono text-xs">jenis_dana</code>, dan merekam audit ke <code className="font-mono text-xs">log_audit_zis</code>.
+                            Pembatalan kwitansi akan membalikkan saldo uang atau beras pada kantong dana terkait dan menyimpan alasan pembatalan ke dalam riwayat audit.
                         </DialogDescription>
                     </DialogHeader>
 

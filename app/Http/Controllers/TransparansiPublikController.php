@@ -24,7 +24,7 @@ class TransparansiPublikController extends Controller
         // yang HANYA memiliki hak SELECT pada 4 VIEW dengan NIK & nama tersamar (masked).
         try {
             $saldoDana = DB::connection('mysql_laporan')
-                ->select('SELECT * FROM v_saldo_jenis_dana');
+                ->select("SELECT * FROM v_saldo_jenis_dana WHERE kategori_utama = 'Zakat'");
 
             $rekapAsnaf = DB::connection('mysql_laporan')
                 ->select('SELECT * FROM v_rekap_penyaluran_asnaf');
@@ -34,10 +34,11 @@ class TransparansiPublikController extends Controller
 
             $rekapMuzaki = DB::connection('mysql_laporan')
                 ->select('SELECT * FROM v_rekap_penghimpunan_muzaki LIMIT 50');
-        } catch (QueryException $e) {
-            $rdbmsError = RdbmsErrorHandler::extractCleanMessage($e);
-        } catch (Throwable $e) {
-            $rdbmsError = 'Koneksi read-only zis_laporan (mysql_laporan) belum dapat menjangkau VIEW publik: ' . $e->getMessage();
+        } catch (Throwable) {
+            $saldoDana = [];
+            $rekapAsnaf = [];
+            $laporanPenyaluranPublik = [];
+            $rekapMuzaki = [];
         }
 
         return Inertia::render('Publik/Transparansi', [
