@@ -1,58 +1,105 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# LAZ Masjid Istiqamah, Rumbai — Sistem Informasi Lembaga Amil Zakat (ZIS & Zakat Fitrah)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem Informasi Pengelolaan Zakat (Zakat Fitrah, Zakat Profesi, dan Zakat Perniagaan) berbasis **Laravel 13 + Inertia.js + React 19 + TypeScript + MySQL 8+** dengan arsitektur *RDBMS-first* untuk menjaga integritas saldo, batas syariat 8 Asnaf & Hak Amil maksimal 12,5%, serta transparansi publik secara *real-time*.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Fitur Utama
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### 1. Portal Transparansi Publik (Tanpa Login)
+- Mengakses data secara aman melalui koneksi terpisah `mysql_laporan` (`zis_laporan`) yang hanya memiliki hak `SELECT` pada 4 *VIEW* tersamar (*masked* NIK & nama).
+- Menampilkan ringkasan saldo dana, distribusi 8 Asnaf dan riwayat penyaluran berdasarkan **tahun berjalan**, rekap muzaki terbaru, kalkulator Zakat Fitrah & Zakat Profesi, serta halaman Dasar Hukum Syariat.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 2. Loket Penghimpunan Cepat & Manajemen Muzaki (`Admin`, `Amil_Penerima`)
+- Pendaftaran Muzaki (`KK_Keluarga` / `Individu`) beserta anggota keluarga dan indeks wilayah RT/RW dengan pencarian asinkron otomatis.
+- Input transaksi Zakat Fitrah (uang/beras) maupun Zakat Mal melalui *Stored Procedure* `sp_terima_zis_fitrah`, nomor kwitansi otomatis (`KWZ-*`), cetak **Kwitansi PDF**, dan pembatalan (*void*) terkontrol via `sp_batalkan_penghimpunan`.
 
-## Learning Laravel
+### 3. Manajemen Mustahik, Survei Kelayakan, & Pelacakan Penerimaan (`Admin`, `Verifikator`, `Staf_Penyaluran`, `Ketua_DKM`)
+- Pencatatan mustahik berdasarkan 8 golongan Asnaf (`ASN-01` s/d `ASN-08`) dan masa berlaku survei 365 hari (`sp_verifikasi_mustahik`).
+- Pelacakan otomatis riwayat penerimaan mustahik per periode aktif & per jenis zakat pada tabel `catatan_penerimaan_mustahik` (`Belum Terima (0x)`, `Sudah Terima 1x`, `2x`, dst.).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 4. Penyaluran Dana / BKK Multi-Mustahik (`Admin`, `Staf_Penyaluran`, `Ketua_DKM`)
+- Nomor BKK (`BKK-*`), kode program (`PRG-*`), dan kode dana (`ZKT-*`) dibuat otomatis oleh sistem dan tidak dapat diubah manual.
+- Alur persetujuan berjenjang: `Draft` -> `Disetujui` -> `Disalurkan` (`sp_eksekusi_penyaluran`) + cetak **BKK PDF**.
+- **Penguncian Program Khusus Amil (`ASN-03`):** program bertanda `khusus_amil = 1` otomatis mengunci pilihan penerima hanya kepada Amil Zakat terdaftar dan menjaga batas syariat **Hak Amil maksimal 12,5%** di tingkat trigger RDBMS.
+- **Target & Progres Program:** pemantauan target dana/beras/KK vs realisasi dan penutupan program (`Selesai`) untuk membuka program tahun berikutnya.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 5. Laporan Analitik, Cetak PDF Resmi, & Audit Trail (`Admin`, `Ketua_DKM`)
+- 4 analitik interaktif: Hierarki Kantong Dana (Recursive CTE), Pertumbuhan Tahunan YoY (`LAG`), Proporsi 8 Asnaf (`PieChart` & `BarChart`), dan Peringkat Kontribusi Muzaki (`DENSE_RANK`).
+- Unduh **Laporan Periode Ramadhan (PDF)** dan **Laporan Tahunan Zakat Fitrah & Zakat Mal (PDF)** yang merangkum dana terhimpun, jumlah muzaki, penerima manfaat, dana tersalurkan, hak amil (`ASN-03`), dan ringkasan penerimaan per jenis zakat.
+- Log audit otomatis (`log_audit_zis`) mencatat perubahan data beserta aktor `@app_user`.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## Teknologi yang Digunakan
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+- **Backend:** PHP `^8.3`, Laravel `^13.17`, Inertia.js Laravel `^3.7`, DomPDF (`barryvdh/laravel-dompdf` `^3.1`)
+- **Frontend:** React `^19.0`, TypeScript `^5.7`, Tailwind CSS `^4.0`, Radix UI, Lucide Icons, Recharts, Vite `^8.0` + `vite-plugin-pwa`
+- **Database:** MySQL 8+ (3 akun RDBMS terisolasi: `zis_admin`, `zis_aplikasi`, `zis_laporan`)
+
+---
+
+## Setup Database (Urutan Eksekusi SQL)
+
+Seluruh skrip SQL berada di direktori `database/sql/`:
+
+1. `00_setup_user.sql` — Membuat akun database `zis_admin`, `zis_aplikasi`, dan `zis_laporan` beserta hak akses minimum.
+2. `02_ddl-v4.sql` — Membuat database `db_laz_zis_masjid` dan seluruh tabel relasional + constraint.
+3. `03_objek-v4.sql` — Membuat 4 *VIEW* publik, *FUNCTION*, *TRIGGER*, dan *STORED PROCEDURE*.
+4. `04_seed-v4.sql` — Mengisi data master, data dummy bersih 3 tahun terakhir (2024–2026), 12 program penyaluran, dan 12 BKK `Disalurkan`.
+5. `05_uji-v4.sql` — Skrip pengujian aturan bisnis RDBMS (opsional).
+6. `99_pembersihan.sql` — Menghapus database dan user proyek untuk reset bersih.
+
+Contoh menjalankan pipeline bersih dari awal:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+mysql -u root < database/sql/99_pembersihan.sql
+mysql -u root < database/sql/00_setup_user.sql
+mysql -u root < database/sql/02_ddl-v4.sql
+mysql -u root < database/sql/03_objek-v4.sql
+mysql -u root < database/sql/04_seed-v4.sql
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## Instalasi & Menjalankan Aplikasi
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+# 1. Pasang dependensi PHP & JavaScript
+composer install
+npm install
 
-## Code of Conduct
+# 2. Salin konfigurasi environment dan sesuaikan koneksi DB (.env)
+cp .env.example .env
+php artisan key:generate
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 3. Build aset frontend
+npm run build
 
-## Security Vulnerabilities
+# 4. Jalankan server pengembangan
+php artisan serve
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## Akun Demo (Hasil Seed `04_seed-v4.sql`)
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Password default seluruh akun seed: `password123`
+
+| Username | Email | Peran |
+| :--- | :--- | :--- |
+| `labib_admin` | `admin@lazmasjid.id` | `Admin` |
+| `ketua_dkm` | `ketua@lazmasjid.id` | `Ketua_DKM` |
+| `amil_loket1` | `amil1@lazmasjid.id` | `Amil_Penerima` |
+| `verifikator_rt` | `surveyor@lazmasjid.id` | `Verifikator` |
+| `staf_penyaluran` | `penyaluran@lazmasjid.id` | `Staf_Penyaluran` |
+
+---
+
+## Pengujian & Verifikasi
+
+```bash
+npm run typecheck
+npm run build
+php artisan test
+```
