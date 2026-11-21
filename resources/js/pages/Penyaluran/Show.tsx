@@ -628,6 +628,11 @@ export default function PenyaluranShow({
                                             selectedId={addForm.data.mustahik_id}
                                             onSelect={(idNum) => addForm.setData('mustahik_id', idNum)}
                                             excludeIds={detailMustahik.map((d) => d.mustahik_id)}
+                                            onlyAsnafKode={
+                                                Number((bkk as { khusus_amil?: number | boolean }).khusus_amil) === 1
+                                                    ? 'ASN-03'
+                                                    : undefined
+                                            }
                                         />
 
                                         <div className="grid grid-cols-2 gap-3">

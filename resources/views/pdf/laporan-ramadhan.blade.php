@@ -226,39 +226,40 @@
         </tbody>
     </table>
 
-    <div class="section-title">4. Catatan Analisis Penerimaan Mustahik Periode Ini (Per Jenis Zakat)</div>
+    <div class="section-title">4. Ringkasan Total Penyaluran &amp; Frekuensi Penerimaan Mustahik per Jenis Zakat</div>
     <table class="data-table">
         <thead>
             <tr>
-                <th>Nama Mustahik</th>
-                <th>Asnaf &amp; Wilayah</th>
-                <th>Jenis Zakat</th>
-                <th class="text-center">Frekuensi</th>
-                <th class="text-right">Total Uang (Rp)</th>
+                <th>Kode</th>
+                <th>Jenis Zakat / Dana</th>
+                <th class="text-right">Penerima (KK)</th>
+                <th class="text-right">Terima 1x</th>
+                <th class="text-right">Terima &ge;2x</th>
+                <th class="text-right">Total Tersalurkan (Rp)</th>
                 <th class="text-right">Total Beras (kg)</th>
             </tr>
         </thead>
         <tbody>
             @forelse ($catatanMustahik as $cat)
                 <tr>
-                    <td><strong>{{ $cat->nama_lengkap }}</strong></td>
-                    <td>{{ $cat->kode_asnaf }} - {{ $cat->nama_asnaf }} ({{ $cat->alamat_rt_rw ?? '-' }})</td>
-                    <td>{{ $cat->kode_dana }} - {{ $cat->nama_dana }}</td>
-                    <td class="text-center">
-                        <span class="badge {{ (int) $cat->jumlah_diterima_kali > 1 ? 'badge-warn' : '' }}">
-                            Sudah Terima {{ (int) $cat->jumlah_diterima_kali }}x
-                        </span>
-                    </td>
+                    <td>{{ $cat->kode_dana }}</td>
+                    <td><strong>{{ $cat->nama_dana }}</strong></td>
+                    <td class="text-right">{{ number_format((int) $cat->jumlah_penerima_kk, 0, ',', '.') }} KK</td>
+                    <td class="text-right">{{ number_format((int) $cat->terima_1x, 0, ',', '.') }} KK</td>
+                    <td class="text-right">{{ number_format((int) $cat->terima_2x_plus, 0, ',', '.') }} KK</td>
                     <td class="text-right">Rp {{ number_format((float) $cat->total_nominal_diterima, 0, ',', '.') }}</td>
                     <td class="text-right">{{ number_format((float) $cat->total_beras_diterima_kg, 2, ',', '.') }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="text-center">Belum ada catatan penyaluran mustahik pada periode ini.</td>
+                    <td colspan="7" class="text-center">Belum ada catatan penyaluran mustahik pada periode ini.</td>
                 </tr>
             @endforelse
         </tbody>
     </table>
+    <p style="font-size: 9px; color: #475569; margin: 4px 0 0 0;">
+        Catatan: Mustahik berstatus Layak yang belum menerima zakat pada periode ini: <strong>{{ number_format($jumlahBelumTerima, 0, ',', '.') }} KK</strong>.
+    </p>
 
     <table class="footer-sign">
         <tr>

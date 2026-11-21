@@ -172,6 +172,10 @@ export default function PenyaluranCreate({
         [daftarProgram, data.program_id]
     );
 
+    const isProgramAmil = Boolean(
+        selectedProgram && (Number(selectedProgram.khusus_amil) === 1 || selectedProgram.khusus_amil === true)
+    );
+
     const selectedDana = React.useMemo(
         () => daftarDanaOperasional.find((d) => d.id === data.jenis_dana_id) ?? null,
         [daftarDanaOperasional, data.jenis_dana_id]
@@ -195,10 +199,22 @@ export default function PenyaluranCreate({
     const handleProgramChange = (programIdStr: string) => {
         const idNum = Number.parseInt(programIdStr, 10);
         const prog = daftarProgram.find((p) => p.id === idNum);
+        const progIsAmil = Boolean(
+            prog && (Number(prog.khusus_amil) === 1 || prog.khusus_amil === true)
+        );
+        if (progIsAmil) {
+            setAsnafGenerator('ASN-03');
+            if (singleCandidateId && mustahikMap.get(singleCandidateId)?.kode_asnaf !== 'ASN-03') {
+                setSingleCandidateId(0);
+            }
+        }
         setData((prev) => ({
             ...prev,
             program_id: idNum,
             jenis_dana_id: prog ? Number(prog.jenis_dana_id) : prev.jenis_dana_id,
+            penerima: progIsAmil
+                ? prev.penerima.filter((row) => mustahikMap.get(row.mustahik_id)?.kode_asnaf === 'ASN-03')
+                : prev.penerima,
         }));
     };
 
@@ -233,6 +249,9 @@ export default function PenyaluranCreate({
     // Filter kandidat mustahik berdasarkan Golongan Asnaf DAN Indeks Wilayah RT/RW
     const getFilteredKandidatKelompok = () => {
         return mustahikLayakList.filter((m) => {
+            if (isProgramAmil && m.kode_asnaf !== 'ASN-03') {
+                return false;
+            }
             const cocokAsnaf =
                 asnafGenerator === 'SEMUA_LAYAK'
                     ? true
@@ -721,6 +740,7 @@ export default function PenyaluranCreate({
                                                 selectedId={singleCandidateId}
                                                 onSelect={(idNum) => setSingleCandidateId(idNum)}
                                                 excludeIds={data.penerima.map((p) => p.mustahik_id)}
+                                                onlyAsnafKode={isProgramAmil ? 'ASN-03' : undefined}
                                             />
 
                                             <div className="grid gap-3 sm:grid-cols-12">

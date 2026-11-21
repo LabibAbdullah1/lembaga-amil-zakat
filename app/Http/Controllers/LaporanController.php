@@ -343,23 +343,19 @@ class LaporanController extends Controller
 
         $catatanMustahik = DB::connection('mysql')->select(
             'SELECT
-                m.nama_lengkap,
-                m.alamat_rt_rw,
-                ka.kode_asnaf,
-                ka.nama_asnaf,
                 jd.kode_dana,
                 jd.nama_dana,
-                cpm.jumlah_diterima_kali,
-                cpm.total_nominal_diterima,
-                cpm.total_beras_diterima_kg,
-                cpm.terakhir_diterima_pada
+                COUNT(DISTINCT cpm.mustahik_id) AS jumlah_penerima_kk,
+                SUM(CASE WHEN cpm.jumlah_diterima_kali = 1 THEN 1 ELSE 0 END) AS terima_1x,
+                SUM(CASE WHEN cpm.jumlah_diterima_kali >= 2 THEN 1 ELSE 0 END) AS terima_2x_plus,
+                SUM(cpm.jumlah_diterima_kali) AS total_kali_penyerahan,
+                COALESCE(SUM(cpm.total_nominal_diterima), 0) AS total_nominal_diterima,
+                COALESCE(SUM(cpm.total_beras_diterima_kg), 0) AS total_beras_diterima_kg
              FROM catatan_penerimaan_mustahik cpm
-             INNER JOIN mustahik m ON m.id = cpm.mustahik_id
-             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
              INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
              WHERE cpm.periode_id = ?
-             ORDER BY cpm.jumlah_diterima_kali DESC, m.nama_lengkap ASC, jd.kode_dana ASC
-             LIMIT 100',
+             GROUP BY jd.id, jd.kode_dana, jd.nama_dana
+             ORDER BY jd.kode_dana ASC',
             [$pid]
         );
 
@@ -477,24 +473,30 @@ class LaporanController extends Controller
 
         $catatanMustahik = DB::connection('mysql')->select(
             'SELECT
-                m.nama_lengkap,
-                m.alamat_rt_rw,
-                ka.kode_asnaf,
-                ka.nama_asnaf,
-                jd.kode_dana,
-                jd.nama_dana,
-                SUM(cpm.jumlah_diterima_kali) AS jumlah_diterima_kali,
-                SUM(cpm.total_nominal_diterima) AS total_nominal_diterima,
-                SUM(cpm.total_beras_diterima_kg) AS total_beras_diterima_kg,
-                MAX(cpm.terakhir_diterima_pada) AS terakhir_diterima_pada
-             FROM catatan_penerimaan_mustahik cpm
-             INNER JOIN mustahik m ON m.id = cpm.mustahik_id
-             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
-             INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
-             WHERE cpm.tahun_masehi = ?
-             GROUP BY m.id, m.nama_lengkap, m.alamat_rt_rw, ka.kode_asnaf, ka.nama_asnaf, jd.id, jd.kode_dana, jd.nama_dana
-             ORDER BY jumlah_diterima_kali DESC, m.nama_lengkap ASC, jd.kode_dana ASC
-             LIMIT 120',
+                sub.kode_dana,
+                sub.nama_dana,
+                COUNT(DISTINCT sub.mustahik_id) AS jumlah_penerima_kk,
+                SUM(CASE WHEN sub.kali_terima = 1 THEN 1 ELSE 0 END) AS terima_1x,
+                SUM(CASE WHEN sub.kali_terima >= 2 THEN 1 ELSE 0 END) AS terima_2x_plus,
+                SUM(sub.kali_terima) AS total_kali_penyerahan,
+                COALESCE(SUM(sub.total_nominal_diterima), 0) AS total_nominal_diterima,
+                COALESCE(SUM(sub.total_beras_diterima_kg), 0) AS total_beras_diterima_kg
+             FROM (
+                SELECT
+                    cpm.mustahik_id,
+                    jd.id AS jenis_dana_id,
+                    jd.kode_dana,
+                    jd.nama_dana,
+                    SUM(cpm.jumlah_diterima_kali) AS kali_terima,
+                    SUM(cpm.total_nominal_diterima) AS total_nominal_diterima,
+                    SUM(cpm.total_beras_diterima_kg) AS total_beras_diterima_kg
+                FROM catatan_penerimaan_mustahik cpm
+                INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
+                WHERE cpm.tahun_masehi = ?
+                GROUP BY cpm.mustahik_id, jd.id, jd.kode_dana, jd.nama_dana
+             ) sub
+             GROUP BY sub.jenis_dana_id, sub.kode_dana, sub.nama_dana
+             ORDER BY sub.kode_dana ASC',
             [$tahun]
         );
 

@@ -19,6 +19,7 @@ interface MustahikSearchPickerProps {
     selectedId: number;
     onSelect: (mustahikId: number) => void;
     excludeIds?: number[];
+    onlyAsnafKode?: string;
 }
 
 export function MustahikSearchPicker({
@@ -28,32 +29,38 @@ export function MustahikSearchPicker({
     selectedId,
     onSelect,
     excludeIds = [],
+    onlyAsnafKode,
 }: MustahikSearchPickerProps) {
     const [query, setQuery] = React.useState<string>('');
     const [rtRwFilter, setRtRwFilter] = React.useState<string>('SEMUA');
     const [openList, setOpenList] = React.useState<boolean>(false);
 
+    const scopedMustahik = React.useMemo(() => {
+        if (!onlyAsnafKode) return daftarMustahik;
+        return daftarMustahik.filter((m) => m.kode_asnaf === onlyAsnafKode);
+    }, [daftarMustahik, onlyAsnafKode]);
+
     const selectedMustahik = React.useMemo(
-        () => daftarMustahik.find((m) => m.id === selectedId) ?? null,
-        [daftarMustahik, selectedId]
+        () => scopedMustahik.find((m) => m.id === selectedId) ?? null,
+        [scopedMustahik, selectedId]
     );
 
     const excludedSet = React.useMemo(() => new Set(excludeIds), [excludeIds]);
 
     const daftarRtRw = React.useMemo(() => {
         const counts = new Map<string, number>();
-        for (const m of daftarMustahik) {
+        for (const m of scopedMustahik) {
             const rt = (m.alamat_rt_rw ?? '').trim() || 'Belum Diisi';
             counts.set(rt, (counts.get(rt) ?? 0) + 1);
         }
         return Array.from(counts.entries())
             .map(([wilayah, total]) => ({ wilayah, total }))
             .sort((a, b) => a.wilayah.localeCompare(b.wilayah));
-    }, [daftarMustahik]);
+    }, [scopedMustahik]);
 
     const filteredCandidates = React.useMemo(() => {
         const q = query.trim().toLowerCase();
-        const matches = daftarMustahik.filter((m) => {
+        const matches = scopedMustahik.filter((m) => {
             const rt = (m.alamat_rt_rw ?? '').trim() || 'Belum Diisi';
             if (rtRwFilter !== 'SEMUA' && rt !== rtRwFilter) {
                 return false;
@@ -68,14 +75,19 @@ export function MustahikSearchPicker({
             );
         });
         return matches.slice(0, 30);
-    }, [daftarMustahik, query, rtRwFilter]);
+    }, [scopedMustahik, query, rtRwFilter]);
 
     return (
         <div className="space-y-2">
+            {onlyAsnafKode && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                    Program Khusus Amil: Daftar penerima dikunci hanya untuk Amil Zakat ({onlyAsnafKode}) yang terdaftar.
+                </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label htmlFor={id}>{label}</Label>
                 <span className="text-[11px] text-muted-foreground tabular-nums">
-                    Terdaftar: {daftarMustahik.length} KK ({daftarRtRw.length} Wilayah RT/RW)
+                    Terdaftar: {scopedMustahik.length} KK ({daftarRtRw.length} Wilayah RT/RW)
                 </span>
             </div>
 

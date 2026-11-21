@@ -141,6 +141,9 @@ export interface ProgramPenyaluran {
     jenis_dana_id: number;
     periode_id: number;
     anggaran_rencana: number | string;
+    target_beras_kg?: number | string;
+    target_penerima_kk?: number;
+    khusus_amil?: number | boolean;
     status_program: StatusProgram;
 }
 

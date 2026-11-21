@@ -51,6 +51,7 @@ Route::middleware(['auth', 'rdbms.user'])->group(function () {
         Route::get('/program', [ProgramPenyaluranController::class, 'index'])->name('program.index');
         Route::post('/program', [ProgramPenyaluranController::class, 'store'])->name('program.store');
         Route::put('/program/{id}', [ProgramPenyaluranController::class, 'update'])->name('program.update');
+        Route::patch('/program/{id}/selesai', [ProgramPenyaluranController::class, 'selesaikan'])->name('program.selesai');
 
         Route::get('/pengguna', [PenggunaSistemController::class, 'index'])->name('pengguna.index');
         Route::post('/pengguna', [PenggunaSistemController::class, 'store'])->name('pengguna.store');

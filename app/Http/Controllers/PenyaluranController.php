@@ -19,6 +19,49 @@ class PenyaluranController extends Controller
      * Melampirkan catatan penerimaan periode/tahun aktif per jenis dana zakat
      * kepada setiap kandidat mustahik agar petugas BKK dapat melihat riwayat penerimaannya.
      */
+    /**
+     * Memastikan jika program berstatus khusus_amil = 1, hanya mustahik golongan ASN-03 (Amil) yang boleh dipilih.
+     */
+    private function validateKhususAmilProgram(int $programId, array $daftarPenerima): ?string
+    {
+        $program = DB::connection('mysql')->selectOne(
+            'SELECT nama_program, khusus_amil FROM program_penyaluran WHERE id = ? LIMIT 1',
+            [$programId]
+        );
+
+        if (! $program || (int) $program->khusus_amil !== 1) {
+            return null;
+        }
+
+        $ids = array_values(array_unique(array_map(fn ($item) => (int) $item['mustahik_id'], $daftarPenerima)));
+        if (count($ids) === 0) {
+            return null;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $nonAmil = DB::connection('mysql')->selectOne(
+            "SELECT m.nama_lengkap, ka.kode_asnaf, ka.nama_asnaf
+             FROM mustahik m
+             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+             WHERE m.id IN ({$placeholders})
+               AND ka.kode_asnaf <> 'ASN-03'
+             LIMIT 1",
+            $ids
+        );
+
+        if ($nonAmil) {
+            return sprintf(
+                'PENGUNCIAN PROGRAM AMIL: Program "%s" khusus untuk Amil Zakat (ASN-03). "%s" (%s - %s) tidak berhak menerima dari program ini.',
+                $program->nama_program,
+                $nonAmil->nama_lengkap,
+                $nonAmil->kode_asnaf,
+                $nonAmil->nama_asnaf
+            );
+        }
+
+        return null;
+    }
+
     private function attachPenerimaanPeriodeAktif(array $daftarMustahik): array
     {
         if (count($daftarMustahik) === 0) {
@@ -134,7 +177,7 @@ class PenyaluranController extends Controller
                         jd.kode_dana, jd.nama_dana, jd.kategori_utama,
                         jd.saldo_tersedia, jd.saldo_beras_kg,
                         pp.periode_id, pr.tahun_hijriah, pr.tahun_masehi,
-                        pp.anggaran_rencana, pp.status_program
+                        pp.anggaran_rencana, pp.khusus_amil, pp.status_program
                  FROM program_penyaluran pp
                  INNER JOIN jenis_dana jd ON jd.id = pp.jenis_dana_id
                  INNER JOIN periode_ramadhan pr ON pr.id = pp.periode_id
@@ -240,6 +283,10 @@ class PenyaluranController extends Controller
             ? strtoupper(trim($validated['no_bkk']))
             : $this->generateNoBkk();
 
+        if ($errAmil = $this->validateKhususAmilProgram((int) $validated['program_id'], $daftarPenerima)) {
+            return back()->withErrors(['penerima' => $errAmil])->with('error', $errAmil);
+        }
+
         $pembuatId = (int) $request->user()->id;
 
         // Eksekusi sekali jalan (Batch / Kolektif) menggunakan Stored Procedure RDBMS:
@@ -308,6 +355,7 @@ class PenyaluranController extends Controller
             $bkk = DB::connection('mysql')->selectOne(
                 'SELECT pd.id, pd.no_bkk, pd.program_id, pp.kode_program, pp.nama_program,
                         pd.jenis_dana_id, jd.kode_dana, jd.nama_dana, jd.kategori_utama,
+                        pp.khusus_amil,
                         jd.saldo_tersedia, jd.saldo_beras_kg,
                         pd.pembuat_id, ps1.nama_lengkap AS nama_pembuat,
                         pd.penyetuju_id, ps2.nama_lengkap AS nama_penyetuju,
@@ -414,6 +462,15 @@ class PenyaluranController extends Controller
                     'beras_kg' => (float) $validated['beras_kg'],
                 ],
             ];
+        }
+
+        $bkk = DB::connection('mysql')->selectOne(
+            'SELECT program_id FROM penyaluran_dana WHERE id = ? LIMIT 1',
+            [$penyaluranId]
+        );
+
+        if ($bkk && ($errAmil = $this->validateKhususAmilProgram((int) $bkk->program_id, $daftarPenerima))) {
+            return back()->withErrors(['mustahik_id' => $errAmil])->with('error', $errAmil);
         }
 
         return RdbmsErrorHandler::run(function () use ($penyaluranId, $daftarPenerima) {

@@ -131,6 +131,19 @@ const WARNA_ASNAF = [
     '#16a34a',
 ];
 
+const formatShortRupiah = (val: number): string => {
+    if (val >= 1_000_000_000) {
+        return `Rp ${(val / 1_000_000_000).toFixed(1).replace('.', ',')} M`;
+    }
+    if (val >= 1_000_000) {
+        return `Rp ${(val / 1_000_000).toFixed(0)} Jt`;
+    }
+    if (val >= 1_000) {
+        return `Rp ${(val / 1_000).toFixed(0)} Rb`;
+    }
+    return `Rp ${val}`;
+};
+
 export default function LaporanIndex({
     hierarkiDana = [],
     pertumbuhanYoy = [],
@@ -165,6 +178,8 @@ export default function LaporanIndex({
         return distribusiAsnaf.map((row) => ({
             name: `${row.kode_asnaf} (${row.nama_asnaf})`,
             kode: row.kode_asnaf,
+            nama: row.nama_asnaf,
+            kodeNama: `${row.kode_asnaf} · ${row.nama_asnaf}`,
             nominal: Number(row.total_nominal) || 0,
             porsi: Number(row.porsi_nominal_persen) || 0,
         }));
@@ -434,10 +449,14 @@ export default function LaporanIndex({
                                             </p>
                                             <div className="h-72 w-full">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={yoyChartData}>
+                                                    <BarChart data={yoyChartData} margin={{ top: 8, right: 12, left: 8, bottom: 4 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
                                                         <XAxis dataKey="periode" tick={{ fontSize: 11 }} />
-                                                        <YAxis tick={{ fontSize: 11 }} />
+                                                        <YAxis
+                                                            width={76}
+                                                            tick={{ fontSize: 11 }}
+                                                            tickFormatter={(val: number) => formatShortRupiah(Number(val) || 0)}
+                                                        />
                                                         <Tooltip
                                                             formatter={(val: unknown) => formatRupiah(Number(val) || 0)}
                                                         />
@@ -542,15 +561,17 @@ export default function LaporanIndex({
                                                 <p className="mb-2 text-xs font-semibold text-muted-foreground">
                                                     Bagaimana porsi nominal penyaluran di antara 8 golongan Asnaf?
                                                 </p>
-                                                <div className="h-64 w-full">
+                                                <div className="h-72 w-full">
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <PieChart>
                                                             <Pie
                                                                 data={asnafChartData}
                                                                 dataKey="nominal"
                                                                 nameKey="name"
-                                                                innerRadius={50}
-                                                                outerRadius={85}
+                                                                cx="50%"
+                                                                cy="45%"
+                                                                innerRadius={45}
+                                                                outerRadius={78}
                                                                 paddingAngle={2}
                                                             >
                                                                 {asnafChartData.map((entry, idx) => (
@@ -565,6 +586,9 @@ export default function LaporanIndex({
                                                                     formatRupiah(Number(val) || 0)
                                                                 }
                                                             />
+                                                            <Legend
+                                                                wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }}
+                                                            />
                                                         </PieChart>
                                                     </ResponsiveContainer>
                                                 </div>
@@ -572,15 +596,26 @@ export default function LaporanIndex({
 
                                             <div className="lg:col-span-6 rounded-lg border p-4">
                                                 <p className="mb-2 text-xs font-semibold text-muted-foreground">
-                                                    Perbandingan Persentase Porsi Penyaluran per Kode Asnaf (%)
+                                                    Perbandingan Persentase Porsi Penyaluran per Golongan Asnaf (%)
                                                 </p>
-                                                <div className="h-64 w-full">
+                                                <div className="h-72 w-full">
                                                     <ResponsiveContainer width="100%" height="100%">
-                                                        <BarChart data={asnafChartData}>
+                                                        <BarChart
+                                                            data={asnafChartData}
+                                                            margin={{ top: 8, right: 8, left: 0, bottom: 20 }}
+                                                        >
                                                             <CartesianGrid strokeDasharray="3 3" />
-                                                            <XAxis dataKey="kode" tick={{ fontSize: 11 }} />
-                                                            <YAxis unit="%" tick={{ fontSize: 11 }} />
+                                                            <XAxis
+                                                                dataKey="kodeNama"
+                                                                interval={0}
+                                                                angle={-25}
+                                                                textAnchor="end"
+                                                                height={62}
+                                                                tick={{ fontSize: 10 }}
+                                                            />
+                                                            <YAxis unit="%" width={44} tick={{ fontSize: 11 }} />
                                                             <Tooltip
+                                                                labelFormatter={(label: unknown) => String(label)}
                                                                 formatter={(val: unknown) =>
                                                                     `${Number(val) || 0}%`
                                                                 }
