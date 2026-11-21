@@ -125,12 +125,17 @@ export default function MasterProgram({
 
     const openDuplicateModal = (program: ProgramRow) => {
         setEditingProgram(null);
-        const nextSuffix = String(new Date().getFullYear()).slice(-2);
+        const newerPeriode =
+            daftarPeriode.find((p) => Number(p.tahun_masehi) > Number(program.tahun_masehi)) ??
+            daftarPeriode.find((p) => p.id === defaultPeriodeId) ??
+            daftarPeriode[0];
+        const targetTahun = newerPeriode ? Number(newerPeriode.tahun_masehi) : new Date().getFullYear();
+        const nextSuffix = String(targetTahun).slice(-2);
         setData({
             kode_program: `${program.kode_program.replace(/-\d{2,4}$/, '')}-${nextSuffix}`,
             nama_program: program.nama_program,
             jenis_dana_id: Number(program.jenis_dana_id),
-            periode_id: defaultPeriodeId,
+            periode_id: newerPeriode ? newerPeriode.id : defaultPeriodeId,
             anggaran_rencana: String(program.anggaran_rencana),
             target_beras_kg: String(program.target_beras_kg ?? 0),
             target_penerima_kk: String(program.target_penerima_kk ?? 0),

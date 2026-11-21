@@ -131,6 +131,34 @@ class ProgramPenyaluranController extends Controller
         ]);
 
         return RdbmsErrorHandler::run(function () use ($validated, $id) {
+            $existing = DB::connection('mysql')->selectOne(
+                'SELECT id, jenis_dana_id, periode_id, khusus_amil FROM program_penyaluran WHERE id = ? LIMIT 1',
+                [$id]
+            );
+
+            if (! $existing) {
+                return redirect()->route('master.program.index')
+                    ->with('error', 'Program penyaluran tidak ditemukan.');
+            }
+
+            $bkkCount = (int) (DB::connection('mysql')->selectOne(
+                'SELECT COUNT(*) AS total FROM penyaluran_dana WHERE program_id = ?',
+                [$id]
+            )->total ?? 0);
+
+            $newKhususAmil = ! empty($validated['khusus_amil']) ? 1 : 0;
+            if (
+                $bkkCount > 0 && (
+                    (int) $existing->jenis_dana_id !== (int) $validated['jenis_dana_id'] ||
+                    (int) $existing->periode_id !== (int) $validated['periode_id'] ||
+                    (int) $existing->khusus_amil !== $newKhususAmil
+                )
+            ) {
+                return back()->withErrors([
+                    'rdbms' => 'PENOLAKAN INTEGRITAS: Program yang sudah memiliki dokumen BKK tidak dapat diubah Sumber Dana, Periode, atau Status Khusus Amil-nya.',
+                ]);
+            }
+
             DB::connection('mysql')->statement(
                 'UPDATE program_penyaluran
                  SET kode_program = ?, nama_program = ?, jenis_dana_id = ?, periode_id = ?, anggaran_rencana = ?, target_beras_kg = ?, target_penerima_kk = ?, khusus_amil = ?, status_program = ?

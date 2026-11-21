@@ -20,6 +20,34 @@ class PenyaluranController extends Controller
      * kepada setiap kandidat mustahik agar petugas BKK dapat melihat riwayat penerimaannya.
      */
     /**
+     * Memastikan program penyaluran belum Selesai dan jenis dana BKK cocok dengan program.
+     */
+    private function validateProgramAktifDanDana(int $programId, int $jenisDanaId): ?string
+    {
+        $program = DB::connection('mysql')->selectOne(
+            'SELECT nama_program, jenis_dana_id, status_program FROM program_penyaluran WHERE id = ? LIMIT 1',
+            [$programId]
+        );
+
+        if (! $program) {
+            return 'Program penyaluran yang dipilih tidak ditemukan.';
+        }
+
+        if ($program->status_program === 'Selesai') {
+            return sprintf(
+                'PENOLAKAN SISTEM: Program "%s" sudah berstatus Selesai dan dikunci. Buat program baru untuk periode/tahun berikutnya.',
+                $program->nama_program
+            );
+        }
+
+        if ((int) $program->jenis_dana_id !== $jenisDanaId) {
+            return 'PENOLAKAN SISTEM: Kantong jenis dana BKK harus sama dengan kantong dana pada Program Penyaluran.';
+        }
+
+        return null;
+    }
+
+    /**
      * Memastikan jika program berstatus khusus_amil = 1, hanya mustahik golongan ASN-03 (Amil) yang boleh dipilih.
      */
     private function validateKhususAmilProgram(int $programId, array $daftarPenerima): ?string
@@ -282,6 +310,10 @@ class PenyaluranController extends Controller
         $noBkk = ! empty($validated['no_bkk'])
             ? strtoupper(trim($validated['no_bkk']))
             : $this->generateNoBkk();
+
+        if ($errProgram = $this->validateProgramAktifDanDana((int) $validated['program_id'], (int) $validated['jenis_dana_id'])) {
+            return back()->withErrors(['program_id' => $errProgram])->with('error', $errProgram);
+        }
 
         if ($errAmil = $this->validateKhususAmilProgram((int) $validated['program_id'], $daftarPenerima)) {
             return back()->withErrors(['penerima' => $errAmil])->with('error', $errAmil);
@@ -579,6 +611,38 @@ class PenyaluranController extends Controller
 
     public function setujui(Request $request, int $penyaluranId): RedirectResponse
     {
+        $bkk = DB::connection('mysql')->selectOne(
+            'SELECT pd.id, pd.status_persetujuan, pd.total_disalurkan, pd.total_beras_kg,
+                    pp.status_program, pp.nama_program
+             FROM penyaluran_dana pd
+             INNER JOIN program_penyaluran pp ON pp.id = pd.program_id
+             WHERE pd.id = ?
+             LIMIT 1',
+            [$penyaluranId]
+        );
+
+        if (! $bkk) {
+            abort(404, 'Dokumen BKK tidak ditemukan.');
+        }
+
+        if ($bkk->status_persetujuan !== 'Draft') {
+            return back()->withErrors([
+                'rdbms' => sprintf('PENOLAKAN SISTEM: BKK berstatus %s tidak dapat disetujui ulang.', $bkk->status_persetujuan),
+            ]);
+        }
+
+        if ($bkk->status_program === 'Selesai') {
+            return back()->withErrors([
+                'rdbms' => sprintf('PENOLAKAN SISTEM: Program "%s" sudah berstatus Selesai sehingga BKK ini tidak dapat disetujui.', $bkk->nama_program),
+            ]);
+        }
+
+        if ((float) $bkk->total_disalurkan <= 0 && (float) $bkk->total_beras_kg <= 0) {
+            return back()->withErrors([
+                'rdbms' => 'PENOLAKAN SISTEM: BKK tidak memiliki nominal uang atau beras penerima yang valid (> 0).',
+            ]);
+        }
+
         $penyetujuId = (int) $request->user()->id;
 
         return RdbmsErrorHandler::run(function () use ($penyaluranId, $penyetujuId) {
@@ -596,6 +660,20 @@ class PenyaluranController extends Controller
 
     public function tolak(Request $request, int $penyaluranId): RedirectResponse
     {
+        $bkk = DB::connection('mysql')->selectOne(
+            'SELECT id, status_persetujuan FROM penyaluran_dana WHERE id = ? LIMIT 1',
+            [$penyaluranId]
+        );
+
+        if (! $bkk) {
+            abort(404, 'Dokumen BKK tidak ditemukan.');
+        }
+
+        if (! in_array($bkk->status_persetujuan, ['Draft', 'Disetujui'], true)) {
+            return back()->withErrors([
+                'rdbms' => sprintf('PENOLAKAN SISTEM: BKK berstatus %s sudah final dan tidak dapat ditolak.', $bkk->status_persetujuan),
+            ]);
+        }
         $validated = $request->validate([
             'catatan_penolakan' => ['required', 'string', 'min:5', 'max:500'],
         ], [
