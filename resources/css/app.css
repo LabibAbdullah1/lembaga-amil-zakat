@@ -143,6 +143,25 @@
     transform: translateY(-2px);
 }
 
+@keyframes lazMarquee {
+    0% {
+        transform: translateX(0%);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.laz-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: lazMarquee 36s linear infinite;
+}
+
+.laz-marquee-wrapper:hover .laz-marquee-track {
+    animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     ::before,

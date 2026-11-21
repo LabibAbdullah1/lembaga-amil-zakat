@@ -13,11 +13,19 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { BarChart3, FolderTree, Medal, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
+import { BarChart3, FileDown, FolderTree, Medal, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -78,12 +86,21 @@ interface PeringkatMuzakiRow {
     running_total_uang: number | string;
 }
 
+interface PeriodeOption {
+    id: number;
+    tahun_hijriah: string;
+    tahun_masehi: number;
+    status_aktif: number | boolean;
+}
+
 interface LaporanIndexProps {
     hierarkiDana: HierarkiDanaRow[];
     pertumbuhanYoy: PertumbuhanYoyRow[];
     distribusiAsnaf: DistribusiAsnafRow[];
     peringkatMuzaki: PeringkatMuzakiRow[];
     periodeAktif: PeriodeRamadhan | null;
+    daftarPeriode?: PeriodeOption[];
+    daftarTahun?: number[];
     rdbmsError?: string | null;
 }
 
@@ -120,8 +137,20 @@ export default function LaporanIndex({
     distribusiAsnaf = [],
     peringkatMuzaki = [],
     periodeAktif,
+    daftarPeriode = [],
+    daftarTahun = [],
     rdbmsError,
 }: LaporanIndexProps) {
+    const [selectedPeriodeId, setSelectedPeriodeId] = React.useState<string>(() =>
+        periodeAktif?.id ? String(periodeAktif.id) : daftarPeriode[0]?.id ? String(daftarPeriode[0].id) : ''
+    );
+    const [selectedTahun, setSelectedTahun] = React.useState<string>(() =>
+        periodeAktif?.tahun_masehi
+            ? String(periodeAktif.tahun_masehi)
+            : daftarTahun[0]
+              ? String(daftarTahun[0])
+              : String(new Date().getFullYear())
+    );
     const yoyChartData = React.useMemo(() => {
         return [...pertumbuhanYoy]
             .reverse()
@@ -150,6 +179,102 @@ export default function LaporanIndex({
 
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
+
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <FileDown className="h-5 w-5 text-primary" aria-hidden="true" />
+                            <CardTitle className="text-lg">
+                                Cetak Laporan Resmi PDF (Periode Ramadhan &amp; Tahunan)
+                            </CardTitle>
+                        </div>
+                        <CardDescription>
+                            Unduh laporan PDF resmi yang memuat dana terhimpun, jumlah muzaki, penerima manfaat (mustahik), dana disalurkan, hak amil (ASN-03), dan analisis penerimaan mustahik.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="flex flex-col justify-between gap-3 rounded-lg border bg-muted/30 p-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-bold text-foreground">
+                                        1. Laporan Periode Ramadhan (PDF)
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Rekapitulasi khusus satu periode Ramadhan (Zakat Fitrah &amp; ZIS periode berjalan).
+                                    </p>
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <Select
+                                        value={selectedPeriodeId}
+                                        onValueChange={setSelectedPeriodeId}
+                                    >
+                                        <SelectTrigger className="sm:flex-1" aria-label="Pilih Periode Ramadhan">
+                                            <SelectValue placeholder="Pilih Periode Ramadhan" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {daftarPeriode.map((p) => (
+                                                <SelectItem key={p.id} value={String(p.id)}>
+                                                    {p.tahun_hijriah} ({p.tahun_masehi} M)
+                                                    {Number(p.status_aktif) === 1 || p.status_aktif === true
+                                                        ? ' - Aktif'
+                                                        : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button asChild size="sm" className="shrink-0">
+                                        <a
+                                            href={`/laporan/pdf/periode-ramadhan${selectedPeriodeId ? `?periode_id=${selectedPeriodeId}` : ''}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <FileDown className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                            Unduh PDF Ramadhan
+                                        </a>
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col justify-between gap-3 rounded-lg border bg-muted/30 p-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-bold text-foreground">
+                                        2. Laporan Tahunan Zakat Fitrah &amp; Mal (PDF)
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Laporan lengkap 1 tahun takwim mencakup Zakat Fitrah, Zakat Mal, dana amil, dan frekuensi penerima manfaat.
+                                    </p>
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <Select value={selectedTahun} onValueChange={setSelectedTahun}>
+                                        <SelectTrigger className="sm:flex-1" aria-label="Pilih Tahun Takwim">
+                                            <SelectValue placeholder="Pilih Tahun" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {(daftarTahun.length > 0
+                                                ? daftarTahun
+                                                : [new Date().getFullYear()]
+                                            ).map((th) => (
+                                                <SelectItem key={th} value={String(th)}>
+                                                    Tahun {th} M
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button asChild size="sm" variant="outline" className="shrink-0">
+                                        <a
+                                            href={`/laporan/pdf/tahunan${selectedTahun ? `?tahun=${selectedTahun}` : ''}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <FileDown className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                            Unduh PDF Tahunan
+                                        </a>
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardHeader>

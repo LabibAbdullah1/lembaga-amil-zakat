@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\DasarHukumController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\Master\JenisDanaController;
@@ -15,9 +16,10 @@ use App\Http\Controllers\PenyaluranController;
 use App\Http\Controllers\TransparansiPublikController;
 use Illuminate\Support\Facades\Route;
 
-// Portal Transparansi Publik (Tanpa Login, Eksklusif Koneksi mysql_laporan / zis_laporan)
+// Portal Transparansi Publik & Dasar Hukum Syariat (Tanpa Login)
 Route::get('/', [TransparansiPublikController::class, 'index'])->name('home');
 Route::get('/transparansi', [TransparansiPublikController::class, 'index'])->name('transparansi.index');
+Route::get('/dasar-hukum', [DasarHukumController::class, 'index'])->name('dasar-hukum.index');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])
@@ -92,6 +94,10 @@ Route::middleware(['auth', 'rdbms.user'])->group(function () {
         Route::get('/penyaluran/{id}', [PenyaluranController::class, 'show'])->name('penyaluran.show');
         Route::post('/penyaluran/{penyaluranId}/mustahik', [PenyaluranController::class, 'tambahMustahik'])
             ->name('penyaluran.mustahik.store');
+        Route::put('/penyaluran/{penyaluranId}/mustahik', [PenyaluranController::class, 'updateDetailMustahik'])
+            ->name('penyaluran.mustahik.update');
+        Route::delete('/penyaluran/{penyaluranId}/mustahik/{detailId}', [PenyaluranController::class, 'hapusDetailMustahik'])
+            ->name('penyaluran.mustahik.destroy');
         Route::get('/penyaluran/{penyaluranId}/pdf', [PenyaluranController::class, 'downloadPdf'])
             ->name('penyaluran.pdf');
     });
@@ -107,6 +113,10 @@ Route::middleware(['auth', 'rdbms.user'])->group(function () {
 
         // Modul 4 Laporan Analitik Wajib & Audit Trail JSON (Admin, Ketua_DKM)
         Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+        Route::get('/laporan/pdf/periode-ramadhan', [LaporanController::class, 'downloadPdfRamadhan'])
+            ->name('laporan.pdf.ramadhan');
+        Route::get('/laporan/pdf/tahunan', [LaporanController::class, 'downloadPdfTahunan'])
+            ->name('laporan.pdf.tahunan');
         Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
     });
 });

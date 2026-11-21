@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
+    BookOpen,
     CalendarClock,
     CheckCircle2,
     ChevronLeft,
@@ -22,7 +23,6 @@ import {
 import { toast } from 'sonner';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
-import { RoleGuideBanner } from '@/components/zis/RoleGuideBanner';
 import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -163,6 +163,15 @@ const NAV_ITEMS: NavItemConfig[] = [
         roles: ['Admin', 'Ketua_DKM'],
         available: true,
     },
+    {
+        key: 'dasar-hukum',
+        label: 'Dasar Hukum Zakat',
+        group: 'Pengawasan',
+        href: '/dasar-hukum',
+        icon: BookOpen,
+        roles: ['Admin', 'Amil_Penerima', 'Verifikator', 'Staf_Penyaluran', 'Ketua_DKM'],
+        available: true,
+    },
 ];
 
 interface AuthenticatedLayoutProps {
@@ -241,49 +250,58 @@ export default function AuthenticatedLayout({
             <OfflineBanner />
 
             <div className="flex flex-1 items-start">
-                {/* Sidebar Navigasi Desktop (Sticky setinggi layar agar tidak ikut scroll bersama konten) */}
+                {/* Sidebar Navigasi Desktop (Sticky setinggi layar, desain modern & simetris) */}
                 <aside
                     aria-label="Navigasi Utama"
                     className={cn(
-                        'hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col border-r bg-card transition-all duration-150 shrink-0',
-                        sidebarCollapsed ? 'md:w-20' : 'md:w-64'
+                        'hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col border-r bg-card/95 backdrop-blur-xs transition-all duration-200 shrink-0 relative z-40',
+                        sidebarCollapsed ? 'md:w-[76px]' : 'md:w-64'
                     )}
                 >
-                    <div className="flex h-16 items-center justify-between border-b px-4">
+                    <button
+                        type="button"
+                        aria-expanded={!sidebarCollapsed}
+                        aria-label={sidebarCollapsed ? 'Perluas sidebar navigasi' : 'Ciutkan sidebar navigasi'}
+                        onClick={() => setSidebarCollapsed((prev) => !prev)}
+                        className="absolute -right-3.5 top-5 z-50 inline-flex h-7 w-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                        {sidebarCollapsed ? (
+                            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        ) : (
+                            <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                    </button>
+
+                    <div
+                        className={cn(
+                            'flex h-16 items-center border-b',
+                            sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-4'
+                        )}
+                    >
                         <Link
                             href="/dashboard"
-                            className="flex items-center gap-3 overflow-hidden focus:outline-none focus:ring-2 focus:ring-ring rounded-md"
+                            className="flex items-center gap-2.5 overflow-hidden focus:outline-none focus:ring-2 focus:ring-ring rounded-lg p-1"
                         >
-                            <img
-                                src="/icons/icon.svg"
-                                alt="Logo SI-LAZ Masjid"
-                                width={34}
-                                height={34}
-                                className="h-8 w-8 shrink-0 rounded-md"
-                            />
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                                <img
+                                    src="/icons/icon.svg"
+                                    alt="Logo LAZ Masjid Istiqamah"
+                                    width={26}
+                                    height={26}
+                                    className="h-6 w-6 rounded-md"
+                                />
+                            </div>
                             {!sidebarCollapsed && (
-                                <div className="truncate">
-                                    <p className="text-sm font-bold tracking-tight">SI-LAZ Masjid</p>
-                                    <p className="text-[11px] text-muted-foreground truncate">
-                                        {user?.peran.replace('_', ' ')}
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold tracking-tight truncate">
+                                        LAZ Istiqamah
+                                    </p>
+                                    <p className="text-[11px] font-medium text-muted-foreground truncate">
+                                        Rumbai • {user?.peran.replace('_', ' ')}
                                     </p>
                                 </div>
                             )}
                         </Link>
-
-                        <button
-                            type="button"
-                            aria-expanded={!sidebarCollapsed}
-                            aria-label={sidebarCollapsed ? 'Perluas sidebar navigasi' : 'Ciutkan sidebar navigasi'}
-                            onClick={() => setSidebarCollapsed((prev) => !prev)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            {sidebarCollapsed ? (
-                                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                            ) : (
-                                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                            )}
-                        </button>
                     </div>
 
                     <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
@@ -293,38 +311,16 @@ export default function AuthenticatedLayout({
 
                             return (
                                 <div key={groupName} className="space-y-1">
-                                    {!sidebarCollapsed && (
-                                        <p className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    {!sidebarCollapsed ? (
+                                        <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
                                             {groupName}
                                         </p>
+                                    ) : (
+                                        <Separator className="my-2" />
                                     )}
                                     {itemsInGroup.map((item) => {
                                         const Icon = item.icon;
                                         const active = isRouteActive(item.href);
-
-                                        if (!item.available) {
-                                            return (
-                                                <div
-                                                    key={item.key}
-                                                    aria-disabled="true"
-                                                    title={`${item.label} (${item.sprintNote})`}
-                                                    className={cn(
-                                                        'flex h-11 items-center justify-between rounded-md px-3 text-xs text-muted-foreground/70 select-none',
-                                                        sidebarCollapsed && 'justify-center px-0'
-                                                    )}
-                                                >
-                                                    <span className="flex items-center gap-3 truncate">
-                                                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                                        {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                                                    </span>
-                                                    {!sidebarCollapsed && item.sprintNote && (
-                                                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
-                                                            {item.sprintNote}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            );
-                                        }
 
                                         return (
                                             <Link
@@ -333,11 +329,11 @@ export default function AuthenticatedLayout({
                                                 aria-current={active ? 'page' : undefined}
                                                 title={sidebarCollapsed ? item.label : undefined}
                                                 className={cn(
-                                                    'flex h-11 items-center gap-3 rounded-md px-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring',
+                                                    'group relative flex h-10 items-center gap-3 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-ring',
                                                     active
-                                                        ? 'bg-accent font-semibold text-accent-foreground border-l-4 border-primary'
-                                                        : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground',
-                                                    sidebarCollapsed && 'justify-center px-0'
+                                                        ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                                                        : 'font-medium text-muted-foreground hover:bg-accent/70 hover:text-accent-foreground',
+                                                    sidebarCollapsed ? 'mx-auto w-10 justify-center px-0' : 'px-3'
                                                 )}
                                             >
                                                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -352,36 +348,26 @@ export default function AuthenticatedLayout({
 
                     <div className="border-t p-3">
                         {!sidebarCollapsed ? (
-                            <div className="rounded-lg bg-muted/60 p-3 space-y-2">
+                            <div className="rounded-xl border bg-muted/40 p-3 space-y-1.5">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-semibold truncate">{user?.nama_lengkap}</span>
-                                    <Badge variant="success">{user?.peran.replace('_', ' ')}</Badge>
+                                    <span className="text-xs font-bold truncate text-foreground">
+                                        {user?.nama_lengkap}
+                                    </span>
+                                    <Badge variant="success" className="text-[10px] shrink-0">
+                                        {user?.peran.replace('_', ' ')}
+                                    </Badge>
                                 </div>
                                 <p className="text-[11px] text-muted-foreground truncate">
                                     {user?.email}
                                 </p>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleLogout}
-                                    className="w-full justify-center"
-                                >
-                                    <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                                    <span>Keluar Sesi</span>
-                                </Button>
                             </div>
                         ) : (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Keluar Sesi"
-                                onClick={handleLogout}
-                                className="w-full"
+                            <div
+                                title={`${user?.nama_lengkap} (${user?.peran.replace('_', ' ')})`}
+                                className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-xs font-bold text-primary"
                             >
-                                <LogOut className="h-4 w-4" aria-hidden="true" />
-                            </Button>
+                                {(user?.nama_lengkap ?? 'P').charAt(0).toUpperCase()}
+                            </div>
                         )}
                     </div>
                 </aside>
@@ -389,7 +375,7 @@ export default function AuthenticatedLayout({
                 {/* Konten Utama + Header Bar */}
                 <div className="flex flex-1 flex-col min-w-0 pb-20 md:pb-0">
                     <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur-xs">
-                        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
                             <div className="flex items-center gap-3 min-w-0">
                                 <img
                                     src="/icons/icon.svg"
@@ -552,8 +538,7 @@ export default function AuthenticatedLayout({
                         </div>
                     </header>
 
-                    <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-6 sm:px-6 space-y-6 laz-page-enter">
-                        {user && <RoleGuideBanner role={user.peran} moduleHint={subtitle} />}
+                    <main className="flex-1 w-full px-4 py-6 sm:px-6 lg:px-8 space-y-6 laz-page-enter">
                         <RdbmsAlert message={errors?.rdbms} />
                         {children}
                     </main>

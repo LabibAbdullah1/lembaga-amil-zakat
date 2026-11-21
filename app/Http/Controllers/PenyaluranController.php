@@ -15,6 +15,57 @@ use Throwable;
 
 class PenyaluranController extends Controller
 {
+    /**
+     * Melampirkan catatan penerimaan periode/tahun aktif per jenis dana zakat
+     * kepada setiap kandidat mustahik agar petugas BKK dapat melihat riwayat penerimaannya.
+     */
+    private function attachPenerimaanPeriodeAktif(array $daftarMustahik): array
+    {
+        if (count($daftarMustahik) === 0) {
+            return [];
+        }
+
+        $periodeAktif = DB::connection('mysql')->selectOne(
+            'SELECT id, tahun_masehi FROM periode_ramadhan WHERE status_aktif = 1 ORDER BY tahun_masehi DESC LIMIT 1'
+        );
+        $tahunAktif = $periodeAktif ? (int) $periodeAktif->tahun_masehi : (int) date('Y');
+
+        $rows = DB::connection('mysql')->select(
+            'SELECT cpm.mustahik_id, cpm.jenis_dana_id, jd.kode_dana, jd.nama_dana,
+                    SUM(cpm.jumlah_diterima_kali) AS jumlah_diterima_kali,
+                    SUM(cpm.total_nominal_diterima) AS total_nominal_diterima,
+                    SUM(cpm.total_beras_diterima_kg) AS total_beras_diterima_kg,
+                    MAX(cpm.terakhir_diterima_pada) AS terakhir_diterima_pada
+             FROM catatan_penerimaan_mustahik cpm
+             INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
+             WHERE cpm.tahun_masehi = ?
+             GROUP BY cpm.mustahik_id, cpm.jenis_dana_id, jd.kode_dana, jd.nama_dana
+             ORDER BY jd.kode_dana ASC',
+            [$tahunAktif]
+        );
+
+        $map = [];
+        foreach ($rows as $row) {
+            $mid = (int) $row->mustahik_id;
+            $map[$mid][] = [
+                'jenis_dana_id' => (int) $row->jenis_dana_id,
+                'kode_dana' => $row->kode_dana,
+                'nama_dana' => $row->nama_dana,
+                'jumlah_diterima_kali' => (int) $row->jumlah_diterima_kali,
+                'total_nominal_diterima' => (float) $row->total_nominal_diterima,
+                'total_beras_diterima_kg' => (float) $row->total_beras_diterima_kg,
+                'terakhir_diterima_pada' => $row->terakhir_diterima_pada,
+            ];
+        }
+
+        foreach ($daftarMustahik as $m) {
+            $items = $map[(int) $m->id] ?? [];
+            $m->penerimaan_periode_ini = $items;
+            $m->total_kali_terima = array_sum(array_column($items, 'jumlah_diterima_kali'));
+        }
+
+        return $daftarMustahik;
+    }
     public function index(Request $request): Response
     {
         $statusFilter = trim((string) $request->query('status', 'SEMUA'));
@@ -101,15 +152,17 @@ class PenyaluranController extends Controller
                  ORDER BY jd.kode_dana ASC"
             );
 
-            $daftarMustahik = DB::connection('mysql')->select(
-                'SELECT m.id, m.nik, m.nama_lengkap, m.kategori_asnaf_id,
-                        ka.kode_asnaf, ka.nama_asnaf,
-                        m.alamat_rt_rw, m.status_verifikasi, m.tanggal_verifikasi_terakhir,
-                        fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
-                 FROM mustahik m
-                 INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
-                 ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, ka.kode_asnaf ASC, m.nama_lengkap ASC
-                 LIMIT 2000'
+            $daftarMustahik = $this->attachPenerimaanPeriodeAktif(
+                DB::connection('mysql')->select(
+                    'SELECT m.id, m.nik, m.nama_lengkap, m.kategori_asnaf_id,
+                            ka.kode_asnaf, ka.nama_asnaf,
+                            m.alamat_rt_rw, m.status_verifikasi, m.tanggal_verifikasi_terakhir,
+                            fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
+                     FROM mustahik m
+                     INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+                     ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, ka.kode_asnaf ASC, m.nama_lengkap ASC
+                     LIMIT 2000'
+                )
             );
 
             $daftarAsnaf = DB::connection('mysql')->select(
@@ -137,6 +190,13 @@ class PenyaluranController extends Controller
         // 1. Mode Kolektif / Kelompok (daftar `penerima` array berisi beberapa mustahik sekaligus)
         // 2. Mode Perorangan tunggal (`mustahik_id`, `nominal`, `beras_kg`)
         if ($request->has('penerima') && is_array($request->input('penerima'))) {
+            $rawPenerima = $request->input('penerima');
+            foreach ($rawPenerima as $idx => $item) {
+                $rawPenerima[$idx]['nominal'] = ($item['nominal'] ?? '') === '' ? 0 : $item['nominal'];
+                $rawPenerima[$idx]['beras_kg'] = ($item['beras_kg'] ?? '') === '' ? 0 : $item['beras_kg'];
+            }
+            $request->merge(['penerima' => $rawPenerima]);
+
             $validated = $request->validate([
                 'no_bkk' => ['nullable', 'string', 'max:40'],
                 'program_id' => ['required', 'integer'],
@@ -153,6 +213,11 @@ class PenyaluranController extends Controller
 
             $daftarPenerima = array_values($validated['penerima']);
         } else {
+            $request->merge([
+                'nominal' => ($request->input('nominal') === '' || $request->input('nominal') === null) ? 0 : $request->input('nominal'),
+                'beras_kg' => ($request->input('beras_kg') === '' || $request->input('beras_kg') === null) ? 0 : $request->input('beras_kg'),
+            ]);
+
             $validated = $request->validate([
                 'no_bkk' => ['nullable', 'string', 'max:40'],
                 'program_id' => ['required', 'integer'],
@@ -278,14 +343,16 @@ class PenyaluranController extends Controller
                 [$id]
             );
 
-            $daftarMustahik = DB::connection('mysql')->select(
-                'SELECT m.id, m.nik, m.nama_lengkap, m.kategori_asnaf_id,
-                        ka.kode_asnaf, ka.nama_asnaf,
-                        m.alamat_rt_rw, m.status_verifikasi, fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
-                 FROM mustahik m
-                 INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
-                 ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, ka.kode_asnaf ASC, m.nama_lengkap ASC
-                 LIMIT 2000'
+            $daftarMustahik = $this->attachPenerimaanPeriodeAktif(
+                DB::connection('mysql')->select(
+                    'SELECT m.id, m.nik, m.nama_lengkap, m.kategori_asnaf_id,
+                            ka.kode_asnaf, ka.nama_asnaf,
+                            m.alamat_rt_rw, m.status_verifikasi, fn_cek_kelayakan_mustahik(m.id) AS is_layak_syariat
+                     FROM mustahik m
+                     INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+                     ORDER BY fn_cek_kelayakan_mustahik(m.id) DESC, ka.kode_asnaf ASC, m.nama_lengkap ASC
+                     LIMIT 2000'
+                )
             );
 
             $daftarAsnaf = DB::connection('mysql')->select(
@@ -313,6 +380,13 @@ class PenyaluranController extends Controller
     {
         // Mendukung penambahan kolektif (array `penerima`) maupun satu per satu
         if ($request->has('penerima') && is_array($request->input('penerima'))) {
+            $rawPenerima = $request->input('penerima');
+            foreach ($rawPenerima as $idx => $item) {
+                $rawPenerima[$idx]['nominal'] = ($item['nominal'] ?? '') === '' ? 0 : $item['nominal'];
+                $rawPenerima[$idx]['beras_kg'] = ($item['beras_kg'] ?? '') === '' ? 0 : $item['beras_kg'];
+            }
+            $request->merge(['penerima' => $rawPenerima]);
+
             $validated = $request->validate([
                 'penerima' => ['required', 'array', 'min:1'],
                 'penerima.*.mustahik_id' => ['required', 'integer', 'distinct'],
@@ -322,6 +396,11 @@ class PenyaluranController extends Controller
 
             $daftarPenerima = array_values($validated['penerima']);
         } else {
+            $request->merge([
+                'nominal' => ($request->input('nominal') === '' || $request->input('nominal') === null) ? 0 : $request->input('nominal'),
+                'beras_kg' => ($request->input('beras_kg') === '' || $request->input('beras_kg') === null) ? 0 : $request->input('beras_kg'),
+            ]);
+
             $validated = $request->validate([
                 'mustahik_id' => ['required', 'integer'],
                 'nominal' => ['required', 'numeric', 'min:0'],
@@ -352,6 +431,92 @@ class PenyaluranController extends Controller
 
             return redirect()->route('penyaluran.show', $penyaluranId)
                 ->with('success', sprintf('%d mustahik penerima berhasil ditambahkan sekaligus ke dalam BKK.', count($daftarPenerima)));
+        });
+    }
+
+    public function updateDetailMustahik(Request $request, int $penyaluranId): RedirectResponse
+    {
+        $bkk = DB::connection('mysql')->selectOne(
+            'SELECT id, status_persetujuan FROM penyaluran_dana WHERE id = ? LIMIT 1',
+            [$penyaluranId]
+        );
+
+        if (! $bkk) {
+            abort(404, 'Dokumen BKK tidak ditemukan.');
+        }
+
+        if ($bkk->status_persetujuan !== 'Draft') {
+            return back()->withErrors([
+                'rdbms' => 'PENOLAKAN SISTEM: Nilai penerima hanya dapat diubah ketika dokumen BKK masih berstatus Draft (sebelum di-ACC).',
+            ]);
+        }
+
+        $rawItems = is_array($request->input('items')) ? $request->input('items') : [];
+        foreach ($rawItems as $idx => $item) {
+            $rawItems[$idx]['nominal_diterima'] = ($item['nominal_diterima'] ?? '') === '' ? 0 : $item['nominal_diterima'];
+            $rawItems[$idx]['beras_diterima_kg'] = ($item['beras_diterima_kg'] ?? '') === '' ? 0 : $item['beras_diterima_kg'];
+        }
+        $request->merge(['items' => $rawItems]);
+
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.id' => ['required', 'integer'],
+            'items.*.nominal_diterima' => ['required', 'numeric', 'min:0'],
+            'items.*.beras_diterima_kg' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        return RdbmsErrorHandler::run(function () use ($penyaluranId, $validated) {
+            foreach ($validated['items'] as $row) {
+                DB::connection('mysql')->statement(
+                    'UPDATE detail_penyaluran_mustahik
+                     SET nominal_diterima = ?, beras_diterima_kg = ?
+                     WHERE id = ? AND penyaluran_id = ?',
+                    [
+                        (float) $row['nominal_diterima'],
+                        (float) $row['beras_diterima_kg'],
+                        (int) $row['id'],
+                        $penyaluranId,
+                    ]
+                );
+            }
+
+            return redirect()->route('penyaluran.show', $penyaluranId)
+                ->with('success', 'Nilai penerimaan mustahik dan total keterangan BKK berhasil disinkronkan.');
+        });
+    }
+
+    public function hapusDetailMustahik(int $penyaluranId, int $detailId): RedirectResponse
+    {
+        $bkk = DB::connection('mysql')->selectOne(
+            'SELECT id, status_persetujuan FROM penyaluran_dana WHERE id = ? LIMIT 1',
+            [$penyaluranId]
+        );
+
+        if (! $bkk || $bkk->status_persetujuan !== 'Draft') {
+            return back()->withErrors([
+                'rdbms' => 'PENOLAKAN SISTEM: Penerima hanya dapat dihapus saat dokumen BKK masih berstatus Draft.',
+            ]);
+        }
+
+        $countRow = DB::connection('mysql')->selectOne(
+            'SELECT COUNT(*) AS total FROM detail_penyaluran_mustahik WHERE penyaluran_id = ?',
+            [$penyaluranId]
+        );
+
+        if (((int) ($countRow->total ?? 0)) <= 1) {
+            return back()->withErrors([
+                'rdbms' => 'PENOLAKAN SISTEM: Dokumen BKK wajib memiliki minimal 1 penerima manfaat.',
+            ]);
+        }
+
+        return RdbmsErrorHandler::run(function () use ($penyaluranId, $detailId) {
+            DB::connection('mysql')->statement(
+                'DELETE FROM detail_penyaluran_mustahik WHERE id = ? AND penyaluran_id = ?',
+                [$detailId, $penyaluranId]
+            );
+
+            return redirect()->route('penyaluran.show', $penyaluranId)
+                ->with('success', 'Penerima manfaat dihapus dari draf BKK dan total BKK telah disesuaikan.');
         });
     }
 

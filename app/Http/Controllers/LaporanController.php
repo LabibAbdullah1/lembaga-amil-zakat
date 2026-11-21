@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Support\RdbmsErrorHandler;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Throwable;
 
 class LaporanController extends Controller
@@ -18,6 +21,8 @@ class LaporanController extends Controller
         $distribusiAsnaf = [];
         $peringkatMuzaki = [];
         $periodeAktif = null;
+        $daftarPeriode = [];
+        $daftarTahun = [];
         $rdbmsError = null;
 
         try {
@@ -26,6 +31,21 @@ class LaporanController extends Controller
                  FROM periode_ramadhan
                  WHERE status_aktif = 1
                  LIMIT 1'
+            );
+
+            $daftarPeriode = DB::connection('mysql')->select(
+                'SELECT id, tahun_hijriah, tahun_masehi, status_aktif
+                 FROM periode_ramadhan
+                 ORDER BY tahun_masehi DESC'
+            );
+
+            $daftarTahun = DB::connection('mysql')->select(
+                "SELECT DISTINCT tahun FROM (
+                    SELECT YEAR(tanggal_transaksi) AS tahun FROM transaksi_penghimpunan WHERE status_transaksi = 'Sah'
+                    UNION
+                    SELECT tahun_masehi AS tahun FROM periode_ramadhan
+                ) t
+                ORDER BY tahun DESC"
             );
 
             // Laporan Analitik 1: Hierarki Dana Zakat (Recursive CTE)
@@ -217,7 +237,290 @@ class LaporanController extends Controller
             'distribusiAsnaf' => $distribusiAsnaf,
             'peringkatMuzaki' => $peringkatMuzaki,
             'periodeAktif' => $periodeAktif,
+            'daftarPeriode' => $daftarPeriode,
+            'daftarTahun' => array_map(fn ($r) => (int) $r->tahun, $daftarTahun),
             'rdbmsError' => $rdbmsError,
         ]);
+    }
+
+    public function downloadPdfRamadhan(Request $request): HttpResponse
+    {
+        $periodeId = (int) $request->query('periode_id', 0);
+
+        $periode = $periodeId > 0
+            ? DB::connection('mysql')->selectOne(
+                'SELECT id, tahun_hijriah, tahun_masehi, beras_per_jiwa_kg, nominal_fitrah_per_jiwa, status_aktif
+                 FROM periode_ramadhan WHERE id = ? LIMIT 1',
+                [$periodeId]
+            )
+            : DB::connection('mysql')->selectOne(
+                'SELECT id, tahun_hijriah, tahun_masehi, beras_per_jiwa_kg, nominal_fitrah_per_jiwa, status_aktif
+                 FROM periode_ramadhan ORDER BY status_aktif DESC, tahun_masehi DESC LIMIT 1'
+            );
+
+        if (! $periode) {
+            abort(404, 'Periode Ramadhan tidak ditemukan.');
+        }
+
+        $pid = (int) $periode->id;
+        $tahunPeriode = (int) $periode->tahun_masehi;
+
+        $ringkasanHimpun = DB::connection('mysql')->selectOne(
+            "SELECT
+                COUNT(DISTINCT tp.muzaki_id) AS jumlah_muzaki,
+                COUNT(tp.id) AS jumlah_transaksi,
+                COALESCE(SUM(tp.total_nominal), 0) AS total_dana_uang,
+                COALESCE(SUM(tp.total_beras_kg), 0) AS total_dana_beras_kg
+             FROM transaksi_penghimpunan tp
+             WHERE tp.status_transaksi = 'Sah' AND tp.periode_id = ?",
+            [$pid]
+        );
+
+        $rincianHimpunDana = DB::connection('mysql')->select(
+            "SELECT
+                jd.kode_dana,
+                jd.nama_dana,
+                jd.kategori_utama,
+                COUNT(DISTINCT tp.muzaki_id) AS jumlah_muzaki,
+                COUNT(dp.id) AS jumlah_item,
+                COALESCE(SUM(dp.nominal), 0) AS total_uang,
+                COALESCE(SUM(dp.berat_beras_kg), 0) AS total_beras_kg
+             FROM detail_penghimpunan dp
+             INNER JOIN transaksi_penghimpunan tp ON tp.id = dp.transaksi_id
+             INNER JOIN jenis_dana jd ON jd.id = dp.jenis_dana_id
+             WHERE tp.status_transaksi = 'Sah' AND tp.periode_id = ?
+             GROUP BY jd.id, jd.kode_dana, jd.nama_dana, jd.kategori_utama
+             ORDER BY jd.kode_dana ASC",
+            [$pid]
+        );
+
+        $ringkasanSalur = DB::connection('mysql')->selectOne(
+            "SELECT
+                COUNT(DISTINCT pd.id) AS jumlah_bkk,
+                COUNT(DISTINCT dpm.mustahik_id) AS jumlah_penerima_manfaat,
+                COUNT(dpm.id) AS total_penyerahan,
+                COALESCE(SUM(dpm.nominal_diterima), 0) AS total_salur_uang,
+                COALESCE(SUM(dpm.beras_diterima_kg), 0) AS total_salur_beras_kg
+             FROM penyaluran_dana pd
+             INNER JOIN detail_penyaluran_mustahik dpm ON dpm.penyaluran_id = pd.id
+             WHERE pd.status_persetujuan = 'Disalurkan'
+               AND YEAR(COALESCE(pd.tanggal_penyaluran, pd.created_at)) = ?",
+            [$tahunPeriode]
+        );
+
+        $danaAmil = DB::connection('mysql')->selectOne(
+            "SELECT
+                COUNT(DISTINCT dpm.mustahik_id) AS jumlah_amil,
+                COALESCE(SUM(dpm.nominal_diterima), 0) AS total_uang_amil,
+                COALESCE(SUM(dpm.beras_diterima_kg), 0) AS total_beras_amil_kg
+             FROM penyaluran_dana pd
+             INNER JOIN detail_penyaluran_mustahik dpm ON dpm.penyaluran_id = pd.id
+             INNER JOIN mustahik m ON m.id = dpm.mustahik_id
+             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+             WHERE pd.status_persetujuan = 'Disalurkan'
+               AND YEAR(COALESCE(pd.tanggal_penyaluran, pd.created_at)) = ?
+               AND ka.kode_asnaf = 'ASN-03'",
+            [$tahunPeriode]
+        );
+
+        $rincianAsnaf = DB::connection('mysql')->select(
+            "SELECT
+                ka.kode_asnaf,
+                ka.nama_asnaf,
+                COUNT(DISTINCT CASE WHEN pd.id IS NOT NULL THEN dpm.mustahik_id END) AS jumlah_mustahik,
+                COALESCE(SUM(CASE WHEN pd.id IS NOT NULL THEN dpm.nominal_diterima ELSE 0 END), 0) AS total_uang,
+                COALESCE(SUM(CASE WHEN pd.id IS NOT NULL THEN dpm.beras_diterima_kg ELSE 0 END), 0) AS total_beras_kg
+             FROM kategori_asnaf ka
+             LEFT JOIN mustahik m ON m.kategori_asnaf_id = ka.id
+             LEFT JOIN detail_penyaluran_mustahik dpm ON dpm.mustahik_id = m.id
+             LEFT JOIN penyaluran_dana pd ON pd.id = dpm.penyaluran_id
+                AND pd.status_persetujuan = 'Disalurkan'
+                AND YEAR(COALESCE(pd.tanggal_penyaluran, pd.created_at)) = ?
+             GROUP BY ka.id, ka.kode_asnaf, ka.nama_asnaf
+             ORDER BY ka.kode_asnaf ASC",
+            [$tahunPeriode]
+        );
+
+        $catatanMustahik = DB::connection('mysql')->select(
+            'SELECT
+                m.nama_lengkap,
+                m.alamat_rt_rw,
+                ka.kode_asnaf,
+                ka.nama_asnaf,
+                jd.kode_dana,
+                jd.nama_dana,
+                cpm.jumlah_diterima_kali,
+                cpm.total_nominal_diterima,
+                cpm.total_beras_diterima_kg,
+                cpm.terakhir_diterima_pada
+             FROM catatan_penerimaan_mustahik cpm
+             INNER JOIN mustahik m ON m.id = cpm.mustahik_id
+             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+             INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
+             WHERE cpm.periode_id = ?
+             ORDER BY cpm.jumlah_diterima_kali DESC, m.nama_lengkap ASC, jd.kode_dana ASC
+             LIMIT 100',
+            [$pid]
+        );
+
+        $jumlahBelumTerima = (int) (DB::connection('mysql')->selectOne(
+            "SELECT COUNT(*) AS total
+             FROM mustahik m
+             WHERE m.status_verifikasi = 'Layak'
+               AND NOT EXISTS (
+                   SELECT 1 FROM catatan_penerimaan_mustahik cpm
+                   WHERE cpm.mustahik_id = m.id AND cpm.periode_id = ?
+               )",
+            [$pid]
+        )->total ?? 0);
+
+        $pdf = Pdf::loadView('pdf.laporan-ramadhan', [
+            'periode' => $periode,
+            'ringkasanHimpun' => $ringkasanHimpun,
+            'rincianHimpunDana' => $rincianHimpunDana,
+            'ringkasanSalur' => $ringkasanSalur,
+            'danaAmil' => $danaAmil,
+            'rincianAsnaf' => $rincianAsnaf,
+            'catatanMustahik' => $catatanMustahik,
+            'jumlahBelumTerima' => $jumlahBelumTerima,
+            'dicetakPada' => now()->format('d/m/Y H:i'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Laporan-Periode-Ramadhan-' . $periode->tahun_masehi . '.pdf');
+    }
+
+    public function downloadPdfTahunan(Request $request): HttpResponse
+    {
+        $tahun = (int) $request->query('tahun', 0);
+        if ($tahun <= 0) {
+            $periodeAktif = DB::connection('mysql')->selectOne(
+                'SELECT tahun_masehi FROM periode_ramadhan WHERE status_aktif = 1 LIMIT 1'
+            );
+            $tahun = $periodeAktif ? (int) $periodeAktif->tahun_masehi : (int) date('Y');
+        }
+
+        $ringkasanHimpun = DB::connection('mysql')->selectOne(
+            "SELECT
+                COUNT(DISTINCT tp.muzaki_id) AS jumlah_muzaki,
+                COUNT(tp.id) AS jumlah_transaksi,
+                COALESCE(SUM(tp.total_nominal), 0) AS total_dana_uang,
+                COALESCE(SUM(tp.total_beras_kg), 0) AS total_dana_beras_kg
+             FROM transaksi_penghimpunan tp
+             WHERE tp.status_transaksi = 'Sah' AND YEAR(tp.tanggal_transaksi) = ?",
+            [$tahun]
+        );
+
+        $rincianHimpunDana = DB::connection('mysql')->select(
+            "SELECT
+                jd.kode_dana,
+                jd.nama_dana,
+                jd.kategori_utama,
+                COUNT(DISTINCT tp.muzaki_id) AS jumlah_muzaki,
+                COUNT(dp.id) AS jumlah_item,
+                COALESCE(SUM(dp.nominal), 0) AS total_uang,
+                COALESCE(SUM(dp.berat_beras_kg), 0) AS total_beras_kg
+             FROM detail_penghimpunan dp
+             INNER JOIN transaksi_penghimpunan tp ON tp.id = dp.transaksi_id
+             INNER JOIN jenis_dana jd ON jd.id = dp.jenis_dana_id
+             WHERE tp.status_transaksi = 'Sah' AND YEAR(tp.tanggal_transaksi) = ?
+             GROUP BY jd.id, jd.kode_dana, jd.nama_dana, jd.kategori_utama
+             ORDER BY jd.kategori_utama ASC, jd.kode_dana ASC",
+            [$tahun]
+        );
+
+        $ringkasanSalur = DB::connection('mysql')->selectOne(
+            "SELECT
+                COUNT(DISTINCT pd.id) AS jumlah_bkk,
+                COUNT(DISTINCT dpm.mustahik_id) AS jumlah_penerima_manfaat,
+                COUNT(dpm.id) AS total_penyerahan,
+                COALESCE(SUM(dpm.nominal_diterima), 0) AS total_salur_uang,
+                COALESCE(SUM(dpm.beras_diterima_kg), 0) AS total_salur_beras_kg
+             FROM penyaluran_dana pd
+             INNER JOIN detail_penyaluran_mustahik dpm ON dpm.penyaluran_id = pd.id
+             WHERE pd.status_persetujuan = 'Disalurkan'
+               AND YEAR(COALESCE(pd.tanggal_penyaluran, pd.created_at)) = ?",
+            [$tahun]
+        );
+
+        $danaAmil = DB::connection('mysql')->selectOne(
+            "SELECT
+                COUNT(DISTINCT dpm.mustahik_id) AS jumlah_amil,
+                COALESCE(SUM(dpm.nominal_diterima), 0) AS total_uang_amil,
+                COALESCE(SUM(dpm.beras_diterima_kg), 0) AS total_beras_amil_kg
+             FROM penyaluran_dana pd
+             INNER JOIN detail_penyaluran_mustahik dpm ON dpm.penyaluran_id = pd.id
+             INNER JOIN mustahik m ON m.id = dpm.mustahik_id
+             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+             WHERE pd.status_persetujuan = 'Disalurkan'
+               AND YEAR(COALESCE(pd.tanggal_penyaluran, pd.created_at)) = ?
+               AND ka.kode_asnaf = 'ASN-03'",
+            [$tahun]
+        );
+
+        $rincianAsnaf = DB::connection('mysql')->select(
+            "SELECT
+                ka.kode_asnaf,
+                ka.nama_asnaf,
+                COUNT(DISTINCT CASE WHEN pd.id IS NOT NULL THEN dpm.mustahik_id END) AS jumlah_mustahik,
+                COALESCE(SUM(CASE WHEN pd.id IS NOT NULL THEN dpm.nominal_diterima ELSE 0 END), 0) AS total_uang,
+                COALESCE(SUM(CASE WHEN pd.id IS NOT NULL THEN dpm.beras_diterima_kg ELSE 0 END), 0) AS total_beras_kg
+             FROM kategori_asnaf ka
+             LEFT JOIN mustahik m ON m.kategori_asnaf_id = ka.id
+             LEFT JOIN detail_penyaluran_mustahik dpm ON dpm.mustahik_id = m.id
+             LEFT JOIN penyaluran_dana pd ON pd.id = dpm.penyaluran_id
+                AND pd.status_persetujuan = 'Disalurkan'
+                AND YEAR(COALESCE(pd.tanggal_penyaluran, pd.created_at)) = ?
+             GROUP BY ka.id, ka.kode_asnaf, ka.nama_asnaf
+             ORDER BY ka.kode_asnaf ASC",
+            [$tahun]
+        );
+
+        $catatanMustahik = DB::connection('mysql')->select(
+            'SELECT
+                m.nama_lengkap,
+                m.alamat_rt_rw,
+                ka.kode_asnaf,
+                ka.nama_asnaf,
+                jd.kode_dana,
+                jd.nama_dana,
+                SUM(cpm.jumlah_diterima_kali) AS jumlah_diterima_kali,
+                SUM(cpm.total_nominal_diterima) AS total_nominal_diterima,
+                SUM(cpm.total_beras_diterima_kg) AS total_beras_diterima_kg,
+                MAX(cpm.terakhir_diterima_pada) AS terakhir_diterima_pada
+             FROM catatan_penerimaan_mustahik cpm
+             INNER JOIN mustahik m ON m.id = cpm.mustahik_id
+             INNER JOIN kategori_asnaf ka ON ka.id = m.kategori_asnaf_id
+             INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
+             WHERE cpm.tahun_masehi = ?
+             GROUP BY m.id, m.nama_lengkap, m.alamat_rt_rw, ka.kode_asnaf, ka.nama_asnaf, jd.id, jd.kode_dana, jd.nama_dana
+             ORDER BY jumlah_diterima_kali DESC, m.nama_lengkap ASC, jd.kode_dana ASC
+             LIMIT 120',
+            [$tahun]
+        );
+
+        $jumlahBelumTerima = (int) (DB::connection('mysql')->selectOne(
+            "SELECT COUNT(*) AS total
+             FROM mustahik m
+             WHERE m.status_verifikasi = 'Layak'
+               AND NOT EXISTS (
+                   SELECT 1 FROM catatan_penerimaan_mustahik cpm
+                   WHERE cpm.mustahik_id = m.id AND cpm.tahun_masehi = ?
+               )",
+            [$tahun]
+        )->total ?? 0);
+
+        $pdf = Pdf::loadView('pdf.laporan-tahunan', [
+            'tahun' => $tahun,
+            'ringkasanHimpun' => $ringkasanHimpun,
+            'rincianHimpunDana' => $rincianHimpunDana,
+            'ringkasanSalur' => $ringkasanSalur,
+            'danaAmil' => $danaAmil,
+            'rincianAsnaf' => $rincianAsnaf,
+            'catatanMustahik' => $catatanMustahik,
+            'jumlahBelumTerima' => $jumlahBelumTerima,
+            'dicetakPada' => now()->format('d/m/Y H:i'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Laporan-Tahunan-Zakat-Fitrah-dan-Mal-' . $tahun . '.pdf');
     }
 }

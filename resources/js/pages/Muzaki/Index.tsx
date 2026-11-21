@@ -38,22 +38,31 @@ interface MuzakiRow extends Muzaki {
     jumlah_anggota_terdaftar?: number;
 }
 
+interface IndeksRtRwMuzakiItem {
+    wilayah_rt_rw: string;
+    jumlah_kk: number;
+}
+
 interface MuzakiIndexProps {
     daftarMuzaki: MuzakiRow[];
+    indeksRtRw?: IndeksRtRwMuzakiItem[];
     filters: {
         q: string;
         jenis: string;
+        rt_rw?: string;
     };
     rdbmsError?: string | null;
 }
 
 export default function MuzakiIndex({
     daftarMuzaki = [],
+    indeksRtRw = [],
     filters,
     rdbmsError,
 }: MuzakiIndexProps) {
     const [searchQuery, setSearchQuery] = React.useState<string>(filters?.q ?? '');
     const [jenisFilter, setJenisFilter] = React.useState<string>(filters?.jenis ?? 'SEMUA');
+    const [rtRwFilter, setRtRwFilter] = React.useState<string>(filters?.rt_rw ?? 'SEMUA');
     const [dialogOpen, setDialogOpen] = React.useState<boolean>(false);
     const [editingMuzaki, setEditingMuzaki] = React.useState<MuzakiRow | null>(null);
     const [limitMuzaki, setLimitMuzaki] = React.useState<number>(10);
@@ -80,14 +89,35 @@ export default function MuzakiIndex({
         jenis_muzaki: 'KK_Keluarga',
     });
 
-    const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    const [isSearching, setIsSearching] = React.useState<boolean>(false);
+    const isFirstRenderRef = React.useRef<boolean>(true);
+
+    const applyMuzakiFilters = React.useCallback((qVal: string, jenisVal: string, rtVal: string) => {
+        setPageMuzaki(1);
+        setIsSearching(true);
         router.get(
             '/muzaki',
-            { q: searchQuery, jenis: jenisFilter },
-            { preserveState: true, replace: true }
+            { q: qVal, jenis: jenisVal, rt_rw: rtVal },
+            {
+                only: ['daftarMuzaki', 'indeksRtRw', 'filters'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onFinish: () => setIsSearching(false),
+            }
         );
-    };
+    }, []);
+
+    React.useEffect(() => {
+        if (isFirstRenderRef.current) {
+            isFirstRenderRef.current = false;
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            applyMuzakiFilters(searchQuery, jenisFilter, rtRwFilter);
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [searchQuery]);
 
     const openCreateModal = () => {
         setEditingMuzaki(null);
@@ -151,20 +181,61 @@ export default function MuzakiIndex({
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        <form onSubmit={handleSearchSubmit} className="grid gap-3 sm:grid-cols-12">
+                        {indeksRtRw.length > 0 && (
+                            <div className="rounded-xl border bg-muted/25 p-3 space-y-2">
+                                <span className="text-xs font-semibold text-foreground block">
+                                    Indeks Wilayah per RT / RW (Muzaki):
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={rtRwFilter === 'SEMUA' ? 'default' : 'outline'}
+                                        onClick={() => {
+                                            setRtRwFilter('SEMUA');
+                                            applyMuzakiFilters(searchQuery, jenisFilter, 'SEMUA');
+                                        }}
+                                        className="h-7 px-2.5 text-xs"
+                                    >
+                                        Semua Wilayah ({indeksRtRw.reduce((acc, r) => acc + Number(r.jumlah_kk), 0)})
+                                    </Button>
+                                    {indeksRtRw.map((rt) => (
+                                        <Button
+                                            key={rt.wilayah_rt_rw}
+                                            type="button"
+                                            size="sm"
+                                            variant={rtRwFilter === rt.wilayah_rt_rw ? 'default' : 'outline'}
+                                            onClick={() => {
+                                                setRtRwFilter(rt.wilayah_rt_rw);
+                                                applyMuzakiFilters(searchQuery, jenisFilter, rt.wilayah_rt_rw);
+                                            }}
+                                            className="h-7 px-2.5 text-xs tabular-nums"
+                                        >
+                                            {rt.wilayah_rt_rw} ({rt.jumlah_kk})
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid gap-3 sm:grid-cols-12">
                             <div className="sm:col-span-6">
                                 <Label htmlFor="cari-muzaki" className="sr-only">
                                     Cari NIK, Nama, atau No. HP
                                 </Label>
                                 <div className="relative">
                                     <Search
-                                        className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                        className={
+                                            isSearching
+                                                ? 'absolute left-3 top-3.5 h-4 w-4 text-primary animate-pulse'
+                                                : 'absolute left-3 top-3.5 h-4 w-4 text-muted-foreground'
+                                        }
                                         aria-hidden="true"
                                     />
                                     <Input
                                         id="cari-muzaki"
                                         type="search"
-                                        placeholder="Cari NIK 16 digit, nama lengkap, atau no HP..."
+                                        placeholder="Ketik NIK, nama lengkap, atau no HP (pencarian otomatis)..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="pl-9"
@@ -180,11 +251,7 @@ export default function MuzakiIndex({
                                     value={jenisFilter}
                                     onValueChange={(val) => {
                                         setJenisFilter(val);
-                                        router.get(
-                                            '/muzaki',
-                                            { q: searchQuery, jenis: val },
-                                            { preserveState: true, replace: true }
-                                        );
+                                        applyMuzakiFilters(searchQuery, val, rtRwFilter);
                                     }}
                                 >
                                     <SelectTrigger id="filter-jenis-muzaki">
@@ -217,7 +284,7 @@ export default function MuzakiIndex({
                                     </SelectContent>
                                 </Select>
                             </div>
-                        </form>
+                        </div>
 
                         {daftarMuzaki.length === 0 ? (
                             <div className="rounded-lg border border-dashed p-8 text-center space-y-2">

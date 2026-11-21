@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
-import { CalendarClock, CheckCircle2, Edit3, Plus, Power } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { CalendarClock, CheckCircle2, Edit3, Lock, Plus, Power, ShieldCheck } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { Badge } from '@/components/ui/badge';
@@ -28,13 +28,34 @@ import {
 import { formatBerasKg, formatRupiah } from '@/lib/format';
 import type { PeriodeRamadhan } from '@/types';
 
+interface StatusDanaFitrahInfo {
+    id: number;
+    kode_dana: string;
+    nama_dana: string;
+    saldo_tersedia: number | string;
+    saldo_beras_kg: number | string;
+    bkk_pending: number;
+}
+
+interface DanaLintasPeriodeInfo {
+    id: number;
+    kode_dana: string;
+    nama_dana: string;
+    saldo_tersedia: number | string;
+    saldo_beras_kg: number | string;
+}
+
 interface MasterPeriodeProps {
     daftarPeriode: PeriodeRamadhan[];
+    statusDanaFitrah?: StatusDanaFitrahInfo | null;
+    danaLintasPeriode?: DanaLintasPeriodeInfo[];
     rdbmsError?: string | null;
 }
 
 export default function MasterPeriode({
     daftarPeriode = [],
+    statusDanaFitrah = null,
+    danaLintasPeriode = [],
     rdbmsError,
 }: MasterPeriodeProps) {
     const [dialogOpen, setDialogOpen] = React.useState<boolean>(false);
@@ -42,15 +63,15 @@ export default function MasterPeriode({
 
     const { data, setData, post, put, processing, errors, reset } = useForm<{
         tahun_hijriah: string;
-        tahun_masehi: number;
+        tahun_masehi: string;
         beras_per_jiwa_kg: string;
         nominal_fitrah_per_jiwa: string;
         status_aktif: boolean;
     }>({
-        tahun_hijriah: '1447',
-        tahun_masehi: 2026,
-        beras_per_jiwa_kg: '2.50',
-        nominal_fitrah_per_jiwa: '45000',
+        tahun_hijriah: '',
+        tahun_masehi: '',
+        beras_per_jiwa_kg: '',
+        nominal_fitrah_per_jiwa: '',
         status_aktif: false,
     });
 
@@ -64,7 +85,7 @@ export default function MasterPeriode({
         setEditingPeriode(periode);
         setData({
             tahun_hijriah: periode.tahun_hijriah,
-            tahun_masehi: Number(periode.tahun_masehi),
+            tahun_masehi: String(periode.tahun_masehi),
             beras_per_jiwa_kg: String(periode.beras_per_jiwa_kg),
             nominal_fitrah_per_jiwa: String(periode.nominal_fitrah_per_jiwa),
             status_aktif: Number(periode.status_aktif) === 1 || periode.status_aktif === true,
@@ -92,6 +113,11 @@ export default function MasterPeriode({
         });
     };
 
+    const fitrahSaldoUang = Number(statusDanaFitrah?.saldo_tersedia ?? 0);
+    const fitrahSaldoBeras = Number(statusDanaFitrah?.saldo_beras_kg ?? 0);
+    const fitrahBkkPending = Number(statusDanaFitrah?.bkk_pending ?? 0);
+    const isFitrahBelumHabis = fitrahSaldoUang > 0 || fitrahSaldoBeras > 0 || fitrahBkkPending > 0;
+
     return (
         <AuthenticatedLayout
             title="Master Periode Ramadhan"
@@ -101,6 +127,95 @@ export default function MasterPeriode({
 
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <CardTitle className="text-base">
+                                    Syarat Penutupan Periode Ramadhan (Zakat Fitrah)
+                                </CardTitle>
+                                {isFitrahBelumHabis ? (
+                                    <Badge variant="warning">
+                                        <Lock className="mr-1 h-3 w-3" aria-hidden="true" />
+                                        Periode Aktif Terkunci
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="success">
+                                        <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+                                        Zakat Fitrah Tersalurkan 100%
+                                    </Badge>
+                                )}
+                            </div>
+                            <CardDescription>
+                                Sesuai syariat Islam (HR. Abu Dawud &amp; Ibnu Majah), Periode Ramadhan aktif <strong>tidak boleh dinonaktifkan</strong> sebelum seluruh Dana Zakat Fitrah Ramadhan (<code>ZKT-FTR</code>) habis disalurkan sebelum Hari Raya Idul Fitri.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-xs">
+                            <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+                                <div>
+                                    <p className="text-muted-foreground">Sisa Saldo Uang ZKT-FTR</p>
+                                    <p className="mt-0.5 text-sm font-bold tabular-nums text-primary">
+                                        {formatRupiah(fitrahSaldoUang)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground">Sisa Saldo Beras ZKT-FTR</p>
+                                    <p className="mt-0.5 text-sm font-bold tabular-nums">
+                                        {formatBerasKg(fitrahSaldoBeras)}
+                                    </p>
+                                </div>
+                            </div>
+                            {isFitrahBelumHabis && (
+                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50/70 p-2.5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                                    <span>
+                                        Salurkan seluruh sisa Zakat Fitrah ({formatRupiah(fitrahSaldoUang)} &amp; {formatBerasKg(fitrahSaldoBeras)}) terlebih dahulu melalui menu BKK.
+                                    </span>
+                                    <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                                        <Link href="/penyaluran/buat">Salurkan Zakat Fitrah</Link>
+                                    </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <CardTitle className="text-base">
+                                    Dana Zakat Mal (Tidak Terikat Periode Ramadhan)
+                                </CardTitle>
+                                <Badge variant="outline">
+                                    <ShieldCheck className="mr-1 h-3 w-3 text-primary" aria-hidden="true" />
+                                    Berlaku Sepanjang Tahun
+                                </Badge>
+                            </div>
+                            <CardDescription>
+                                Dana <strong>Zakat Profesi (<code>ZKT-PRF</code>)</strong> dan <strong>Zakat Perniagaan (<code>ZKT-PRN</code>)</strong> tidak terikat oleh pergantian Periode Ramadhan dan saldonya tidak akan hilang saat periode Ramadhan diganti.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-xs">
+                            {danaLintasPeriode.map((d) => (
+                                <div
+                                    key={d.id}
+                                    className="flex items-center justify-between rounded-lg border bg-accent/30 px-3 py-2.5"
+                                >
+                                    <div>
+                                        <p className="font-semibold text-foreground">
+                                            [{d.kode_dana}] {d.nama_dana}
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Akumulasi Berkelanjutan Lintas Periode
+                                        </p>
+                                    </div>
+                                    <span className="font-bold tabular-nums text-primary">
+                                        {formatRupiah(d.saldo_tersedia)}
+                                    </span>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </div>
 
                 <Card>
                     <CardHeader className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -311,10 +426,9 @@ export default function MasterPeriode({
                                     type="number"
                                     inputMode="numeric"
                                     required
+                                    placeholder="Contoh: 2026"
                                     value={data.tahun_masehi}
-                                    onChange={(e) =>
-                                        setData('tahun_masehi', Number.parseInt(e.target.value, 10) || 2026)
-                                    }
+                                    onChange={(e) => setData('tahun_masehi', e.target.value)}
                                 />
                                 {errors.tahun_masehi && (
                                     <p className="text-xs text-destructive">{errors.tahun_masehi}</p>
@@ -332,6 +446,7 @@ export default function MasterPeriode({
                                     step="0.01"
                                     min="0.1"
                                     required
+                                    placeholder="Contoh: 2.50"
                                     value={data.beras_per_jiwa_kg}
                                     onChange={(e) => setData('beras_per_jiwa_kg', e.target.value)}
                                 />
@@ -348,6 +463,7 @@ export default function MasterPeriode({
                                     inputMode="numeric"
                                     min="1000"
                                     required
+                                    placeholder="Contoh: 45000"
                                     value={data.nominal_fitrah_per_jiwa}
                                     onChange={(e) => setData('nominal_fitrah_per_jiwa', e.target.value)}
                                 />

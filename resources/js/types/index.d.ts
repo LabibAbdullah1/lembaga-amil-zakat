@@ -77,6 +77,16 @@ export interface AnggotaKeluargaMuzaki {
     status_hubungan: StatusHubunganKeluarga;
 }
 
+export interface PenerimaanMustahikItem {
+    jenis_dana_id: number;
+    kode_dana: string;
+    nama_dana: string;
+    jumlah_diterima_kali: number;
+    total_nominal_diterima: number | string;
+    total_beras_diterima_kg: number | string;
+    terakhir_diterima_pada: string | null;
+}
+
 export interface Mustahik {
     id: number;
     nik: string;
@@ -86,6 +96,8 @@ export interface Mustahik {
     status_verifikasi: StatusVerifikasiMustahik;
     tanggal_verifikasi_terakhir: string | null;
     is_layak_syariat?: boolean | number;
+    penerimaan_periode_ini?: PenerimaanMustahikItem[];
+    total_kali_terima?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -220,11 +232,31 @@ export interface HakAmilKategoriItem {
     jenis_dana_id: number;
     kode_dana: string;
     nama_dana: string;
+    is_terikat_periode_ramadhan?: boolean;
+    saldo_uang_tersedia?: number;
+    saldo_beras_tersedia?: number;
+    pool_total_uang?: number;
+    pool_total_beras?: number;
+    kuota_amil_uang?: number;
+    kuota_amil_beras?: number;
+    terpakai_amil_uang?: number;
+    terpakai_amil_beras?: number;
+    sisa_kuota_amil_uang?: number;
+    sisa_kuota_amil_beras?: number;
+    kuota_non_amil_uang?: number;
+    kuota_non_amil_beras?: number;
+    terpakai_non_amil_uang?: number;
+    terpakai_non_amil_beras?: number;
+    sisa_kuota_non_amil_uang?: number;
+    sisa_kuota_non_amil_beras?: number;
+    jatah_per_asnaf_uang?: number;
+    jatah_per_asnaf_beras?: number;
     total_himpun_rupiah: number;
     total_amil_rupiah: number;
     kuota_maksimal_rupiah: number;
     sisa_kuota_rupiah: number;
     persentase_amil: number;
+    persentase_non_amil?: number;
 }
 
 export interface SharedProps {

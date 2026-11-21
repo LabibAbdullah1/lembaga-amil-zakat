@@ -55,20 +55,35 @@ export default function PenyaluranIndex({
     const [statusFilter, setStatusFilter] = React.useState<string>(filters?.status ?? 'SEMUA');
     const [currentPage, setCurrentPage] = React.useState<number>(1);
     const [perPage, setPerPage] = React.useState<number>(15);
+    const [isSearching, setIsSearching] = React.useState<boolean>(false);
+    const isFirstRenderRef = React.useRef<boolean>(true);
 
-    const applyFilter = (qVal: string, statusVal: string) => {
+    const applyFilter = React.useCallback((qVal: string, statusVal: string) => {
         setCurrentPage(1);
+        setIsSearching(true);
         router.get(
             '/penyaluran',
             { q: qVal, status: statusVal },
-            { preserveState: true, replace: true }
+            {
+                only: ['daftarBkk', 'filters'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onFinish: () => setIsSearching(false),
+            }
         );
-    };
+    }, []);
 
-    const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        applyFilter(searchQuery, statusFilter);
-    };
+    React.useEffect(() => {
+        if (isFirstRenderRef.current) {
+            isFirstRenderRef.current = false;
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            applyFilter(searchQuery, statusFilter);
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [searchQuery]);
 
     const totalPages = Math.max(1, Math.ceil(daftarBkk.length / perPage));
     const safePage = Math.min(currentPage, totalPages);
@@ -119,20 +134,24 @@ export default function PenyaluranIndex({
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        <form onSubmit={handleSearchSubmit} className="grid gap-3 sm:grid-cols-12">
-                            <div className="sm:col-span-5">
+                        <div className="grid gap-3 sm:grid-cols-12">
+                            <div className="sm:col-span-6">
                                 <Label htmlFor="cari-bkk" className="sr-only">
                                     Cari Nomor BKK atau Program
                                 </Label>
                                 <div className="relative">
                                     <Search
-                                        className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                        className={
+                                            isSearching
+                                                ? 'absolute left-3 top-3.5 h-4 w-4 text-primary animate-pulse'
+                                                : 'absolute left-3 top-3.5 h-4 w-4 text-muted-foreground'
+                                        }
                                         aria-hidden="true"
                                     />
                                     <Input
                                         id="cari-bkk"
                                         type="search"
-                                        placeholder="Cari No. BKK, nama program, atau kantong dana..."
+                                        placeholder="Ketik No. BKK, nama program, atau kantong dana..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="pl-9"
@@ -140,7 +159,7 @@ export default function PenyaluranIndex({
                                 </div>
                             </div>
 
-                            <div className="sm:col-span-3">
+                            <div className="sm:col-span-4">
                                 <Select
                                     value={statusFilter}
                                     onValueChange={(val) => {
@@ -181,13 +200,7 @@ export default function PenyaluranIndex({
                                     </SelectContent>
                                 </Select>
                             </div>
-
-                            <div className="sm:col-span-2">
-                                <Button type="submit" variant="secondary" className="w-full">
-                                    Filter
-                                </Button>
-                            </div>
-                        </form>
+                        </div>
 
                         {daftarBkk.length === 0 ? (
                             <div className="rounded-lg border border-dashed p-8 text-center space-y-2">

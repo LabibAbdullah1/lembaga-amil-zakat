@@ -30,6 +30,7 @@ export function MustahikSearchPicker({
     excludeIds = [],
 }: MustahikSearchPickerProps) {
     const [query, setQuery] = React.useState<string>('');
+    const [rtRwFilter, setRtRwFilter] = React.useState<string>('SEMUA');
     const [openList, setOpenList] = React.useState<boolean>(false);
 
     const selectedMustahik = React.useMemo(
@@ -39,9 +40,24 @@ export function MustahikSearchPicker({
 
     const excludedSet = React.useMemo(() => new Set(excludeIds), [excludeIds]);
 
+    const daftarRtRw = React.useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const m of daftarMustahik) {
+            const rt = (m.alamat_rt_rw ?? '').trim() || 'Belum Diisi';
+            counts.set(rt, (counts.get(rt) ?? 0) + 1);
+        }
+        return Array.from(counts.entries())
+            .map(([wilayah, total]) => ({ wilayah, total }))
+            .sort((a, b) => a.wilayah.localeCompare(b.wilayah));
+    }, [daftarMustahik]);
+
     const filteredCandidates = React.useMemo(() => {
         const q = query.trim().toLowerCase();
         const matches = daftarMustahik.filter((m) => {
+            const rt = (m.alamat_rt_rw ?? '').trim() || 'Belum Diisi';
+            if (rtRwFilter !== 'SEMUA' && rt !== rtRwFilter) {
+                return false;
+            }
             if (q === '') return true;
             return (
                 m.nama_lengkap.toLowerCase().includes(q) ||
@@ -52,16 +68,57 @@ export function MustahikSearchPicker({
             );
         });
         return matches.slice(0, 30);
-    }, [daftarMustahik, query]);
+    }, [daftarMustahik, query, rtRwFilter]);
 
     return (
         <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label htmlFor={id}>{label}</Label>
                 <span className="text-[11px] text-muted-foreground tabular-nums">
-                    Terdaftar: {daftarMustahik.length} KK
+                    Terdaftar: {daftarMustahik.length} KK ({daftarRtRw.length} Wilayah RT/RW)
                 </span>
             </div>
+
+            {daftarRtRw.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-background/80 p-1.5">
+                    <span className="px-1.5 text-[11px] font-semibold text-muted-foreground">
+                        Indeks RT/RW:
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setRtRwFilter('SEMUA');
+                            setOpenList(true);
+                        }}
+                        className={cn(
+                            'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
+                            rtRwFilter === 'SEMUA'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        Semua ({daftarMustahik.length})
+                    </button>
+                    {daftarRtRw.map((rt) => (
+                        <button
+                            key={rt.wilayah}
+                            type="button"
+                            onClick={() => {
+                                setRtRwFilter(rt.wilayah);
+                                setOpenList(true);
+                            }}
+                            className={cn(
+                                'rounded px-2 py-0.5 text-[11px] font-medium tabular-nums transition-colors',
+                                rtRwFilter === rt.wilayah
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                            )}
+                        >
+                            {rt.wilayah} ({rt.total})
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div className="relative">
                 <Search
@@ -135,7 +192,7 @@ export function MustahikSearchPicker({
                                         </p>
                                     </div>
 
-                                    <div className="shrink-0">
+                                    <div className="shrink-0 flex flex-col items-end gap-1">
                                         {isAlreadyInBkk ? (
                                             <Badge variant="secondary">Sudah di Daftar</Badge>
                                         ) : layak ? (
@@ -148,6 +205,23 @@ export function MustahikSearchPicker({
                                                 <XCircle className="mr-1 h-3 w-3" aria-hidden="true" />
                                                 {m.status_verifikasi}
                                             </Badge>
+                                        )}
+                                        {m.penerimaan_periode_ini && m.penerimaan_periode_ini.length > 0 ? (
+                                            <div className="flex flex-wrap justify-end gap-1">
+                                                {m.penerimaan_periode_ini.map((p) => (
+                                                    <span
+                                                        key={p.jenis_dana_id}
+                                                        className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 font-mono text-[9px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                                        title={p.nama_dana}
+                                                    >
+                                                        {p.kode_dana}: {p.jumlah_diterima_kali}x
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-[10px] text-muted-foreground">
+                                                Belum Terima (0x)
+                                            </span>
                                         )}
                                     </div>
                                 </button>
@@ -173,12 +247,26 @@ export function MustahikSearchPicker({
                         </div>
                     </div>
 
-                    {Number(selectedMustahik.is_layak_syariat) === 1 ||
-                    selectedMustahik.is_layak_syariat === true ? (
-                        <Badge variant="success">Layak Terima Zakat</Badge>
-                    ) : (
-                        <Badge variant="destructive">Belum Memenuhi Syarat</Badge>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {selectedMustahik.penerimaan_periode_ini &&
+                        selectedMustahik.penerimaan_periode_ini.length > 0 ? (
+                            <Badge variant="warning">
+                                Sudah Terima {selectedMustahik.total_kali_terima ?? 0}x (
+                                {selectedMustahik.penerimaan_periode_ini
+                                    .map((p) => `${p.kode_dana}: ${p.jumlah_diterima_kali}x`)
+                                    .join(', ')}
+                                )
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline">Belum Terima Periode Ini</Badge>
+                        )}
+                        {Number(selectedMustahik.is_layak_syariat) === 1 ||
+                        selectedMustahik.is_layak_syariat === true ? (
+                            <Badge variant="success">Layak Terima Zakat</Badge>
+                        ) : (
+                            <Badge variant="destructive">Belum Memenuhi Syarat</Badge>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

@@ -148,7 +148,7 @@ export default function LoketIndex({
         periode_id: number;
         metode_bayar: MetodeBayar;
         jenis_dana_id: number;
-        jumlah_jiwa: number;
+        jumlah_jiwa: string;
         nominal: string;
         berat_beras_kg: string;
     }>({
@@ -157,9 +157,9 @@ export default function LoketIndex({
         periode_id: periodeAktif ? Number(periodeAktif.id) : 0,
         metode_bayar: 'Tunai',
         jenis_dana_id: defaultDana ? Number(defaultDana.id) : 0,
-        jumlah_jiwa: defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1,
+        jumlah_jiwa: String(defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1),
         nominal: String((defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1) * tarifFitrah),
-        berat_beras_kg: '0',
+        berat_beras_kg: '',
     });
 
     // Pastikan jika pengguna berpindah dari halaman Detail Muzaki (/loket?muzaki_id=...),
@@ -172,15 +172,15 @@ export default function LoketIndex({
                 setData((prev) => ({
                     ...prev,
                     muzaki_id: Number(matched.id),
-                    jumlah_jiwa: jiwa,
+                    jumlah_jiwa: String(jiwa),
                     nominal:
                         prev.metode_bayar === 'Beras'
-                            ? '0'
+                            ? ''
                             : String(jiwa * tarifFitrah),
                     berat_beras_kg:
                         prev.metode_bayar === 'Beras'
                             ? (jiwa * takaranBeras).toFixed(2)
-                            : '0',
+                            : '',
                 }));
             }
         }
@@ -203,18 +203,19 @@ export default function LoketIndex({
     }, [selectedDana]);
 
     const applySaranKalkulasi = (
-        jiwa: number,
+        jiwaRaw: number | string,
         metode: MetodeBayar,
         fitrahMode: boolean
     ) => {
+        const jiwa = Math.max(1, Number.parseInt(String(jiwaRaw), 10) || 1);
         if (!fitrahMode) return;
 
         if (metode === 'Beras') {
             setData((prev) => ({
                 ...prev,
-                jumlah_jiwa: jiwa,
+                jumlah_jiwa: String(jiwa),
                 metode_bayar: metode,
-                nominal: '0',
+                nominal: '',
                 berat_beras_kg: (jiwa * takaranBeras).toFixed(2),
             }));
         } else if (metode === 'Campuran') {
@@ -222,18 +223,18 @@ export default function LoketIndex({
             const sisaJiwa = Math.max(0, jiwa - separuhJiwa);
             setData((prev) => ({
                 ...prev,
-                jumlah_jiwa: jiwa,
+                jumlah_jiwa: String(jiwa),
                 metode_bayar: metode,
                 nominal: String(separuhJiwa * tarifFitrah),
-                berat_beras_kg: (sisaJiwa * takaranBeras).toFixed(2),
+                berat_beras_kg: sisaJiwa > 0 ? (sisaJiwa * takaranBeras).toFixed(2) : '',
             }));
         } else {
             setData((prev) => ({
                 ...prev,
-                jumlah_jiwa: jiwa,
+                jumlah_jiwa: String(jiwa),
                 metode_bayar: metode,
                 nominal: String(jiwa * tarifFitrah),
-                berat_beras_kg: '0',
+                berat_beras_kg: '',
             }));
         }
     };
@@ -243,7 +244,7 @@ export default function LoketIndex({
         const jiwa = found ? Math.max(1, Number(found.jumlah_jiwa)) : 1;
 
         setData('muzaki_id', idNum);
-        setData('jumlah_jiwa', jiwa);
+        setData('jumlah_jiwa', String(jiwa));
         applySaranKalkulasi(jiwa, data.metode_bayar, isFitrahDana);
     };
 
@@ -260,20 +261,43 @@ export default function LoketIndex({
         });
     };
 
-    const handleFilterRiwayat = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        router.get(
-            '/loket',
-            {
-                q: searchQuery,
-                status: statusFilter,
-                per_page: perPageLimit,
-                muzaki_id: selectedMuzakiId || undefined,
-                page: 1,
-            },
-            { preserveState: true, replace: true }
-        );
-    };
+    const [isSearchingRiwayat, setIsSearchingRiwayat] = React.useState<boolean>(false);
+    const isFirstLoketSearchRef = React.useRef<boolean>(true);
+
+    const applyRiwayatFilters = React.useCallback(
+        (qVal: string, statusVal: string, limitVal: number) => {
+            setIsSearchingRiwayat(true);
+            router.get(
+                '/loket',
+                {
+                    q: qVal,
+                    status: statusVal,
+                    per_page: limitVal,
+                    muzaki_id: selectedMuzakiId || undefined,
+                    page: 1,
+                },
+                {
+                    only: ['riwayatKwitansi', 'pagination', 'filters'],
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                    onFinish: () => setIsSearchingRiwayat(false),
+                }
+            );
+        },
+        [selectedMuzakiId]
+    );
+
+    React.useEffect(() => {
+        if (isFirstLoketSearchRef.current) {
+            isFirstLoketSearchRef.current = false;
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            applyRiwayatFilters(searchQuery, statusFilter, perPageLimit);
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [searchQuery]);
 
     const handlePageChange = (newPage: number) => {
         router.get(
@@ -438,14 +462,15 @@ export default function LoketIndex({
                                                         type="number"
                                                         inputMode="numeric"
                                                         min={1}
-                                                        required
+                                                        placeholder="1"
                                                         value={data.jumlah_jiwa}
                                                         onChange={(e) => {
-                                                            const val = Math.max(
-                                                                1,
-                                                                Number.parseInt(e.target.value, 10) || 1
-                                                            );
-                                                            setData('jumlah_jiwa', val);
+                                                            const raw = e.target.value;
+                                                            setData('jumlah_jiwa', raw);
+                                                            const parsed = Number.parseInt(raw, 10);
+                                                            if (!Number.isNaN(parsed) && parsed >= 1 && isFitrahDana) {
+                                                                applySaranKalkulasi(parsed, data.metode_bayar, true);
+                                                            }
                                                         }}
                                                     />
                                                     <Button
@@ -476,7 +501,7 @@ export default function LoketIndex({
                                                     type="number"
                                                     inputMode="numeric"
                                                     min="0"
-                                                    required
+                                                    placeholder="0"
                                                     value={data.nominal}
                                                     onChange={(e) => setData('nominal', e.target.value)}
                                                     className="tabular-nums font-semibold"
@@ -494,7 +519,7 @@ export default function LoketIndex({
                                                     inputMode="decimal"
                                                     step="0.01"
                                                     min="0"
-                                                    required
+                                                    placeholder="0"
                                                     value={data.berat_beras_kg}
                                                     onChange={(e) => setData('berat_beras_kg', e.target.value)}
                                                     className="tabular-nums font-semibold"
@@ -508,7 +533,9 @@ export default function LoketIndex({
                                         <div className="rounded-lg border bg-accent/50 p-3 text-xs space-y-1">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-muted-foreground">Ringkasan Setoran:</span>
-                                                <span className="font-semibold">{data.jumlah_jiwa} jiwa</span>
+                                                <span className="font-semibold">
+                                                    {Number.parseInt(String(data.jumlah_jiwa), 10) || 1} jiwa
+                                                </span>
                                             </div>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-muted-foreground">Total Uang & Beras:</span>
@@ -555,20 +582,24 @@ export default function LoketIndex({
                             </CardHeader>
 
                             <CardContent className="space-y-4">
-                                <form onSubmit={handleFilterRiwayat} className="grid gap-2.5 sm:grid-cols-12">
-                                    <div className="sm:col-span-5">
+                                <div className="grid gap-2.5 sm:grid-cols-12">
+                                    <div className="sm:col-span-6">
                                         <Label htmlFor="cari-kwitansi" className="sr-only">
                                             Cari No. Kwitansi atau Nama Muzaki
                                         </Label>
                                         <div className="relative">
                                             <Search
-                                                className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                                className={
+                                                    isSearchingRiwayat
+                                                        ? 'absolute left-3 top-3.5 h-4 w-4 text-primary animate-pulse'
+                                                        : 'absolute left-3 top-3.5 h-4 w-4 text-muted-foreground'
+                                                }
                                                 aria-hidden="true"
                                             />
                                             <Input
                                                 id="cari-kwitansi"
                                                 type="search"
-                                                placeholder="Cari No. Kwitansi, NIK, atau Nama Muzaki..."
+                                                placeholder="Ketik No. Kwitansi, NIK, atau Nama Muzaki..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
                                                 className="pl-9"
@@ -576,7 +607,7 @@ export default function LoketIndex({
                                         </div>
                                     </div>
 
-                                    <div className="sm:col-span-3">
+                                    <div className="sm:col-span-4">
                                         <Select
                                             value={statusFilter}
                                             onValueChange={(val) => {
@@ -636,13 +667,7 @@ export default function LoketIndex({
                                             </SelectContent>
                                         </Select>
                                     </div>
-
-                                    <div className="sm:col-span-2">
-                                        <Button type="submit" variant="secondary" className="w-full">
-                                            Filter
-                                        </Button>
-                                    </div>
-                                </form>
+                                </div>
 
                                 {riwayatKwitansi.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center space-y-1">

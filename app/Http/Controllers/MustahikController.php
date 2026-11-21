@@ -17,17 +17,34 @@ class MustahikController extends Controller
         $search = trim((string) $request->query('q', ''));
         $asnafFilter = trim((string) $request->query('asnaf', 'SEMUA'));
         $statusFilter = trim((string) $request->query('status', 'SEMUA'));
+        $rtRwFilter = trim((string) $request->query('rt_rw', 'SEMUA'));
+        $penerimaanFilter = trim((string) $request->query('penerimaan', 'SEMUA'));
 
         $daftarMustahik = [];
         $daftarAsnaf = [];
+        $indeksRtRw = [];
         $riwayatVerifikasi = [];
+        $periodeAktif = null;
         $rdbmsError = null;
 
         try {
+            $periodeAktif = DB::connection('mysql')->selectOne(
+                'SELECT id, tahun_hijriah, tahun_masehi FROM periode_ramadhan WHERE status_aktif = 1 LIMIT 1'
+            );
+
             $daftarAsnaf = DB::connection('mysql')->select(
                 'SELECT id, kode_asnaf, nama_asnaf, deskripsi
                  FROM kategori_asnaf
                  ORDER BY kode_asnaf ASC'
+            );
+
+            $indeksRtRw = DB::connection('mysql')->select(
+                "SELECT COALESCE(NULLIF(TRIM(alamat_rt_rw), ''), 'Belum Diisi') AS wilayah_rt_rw,
+                        COUNT(id) AS jumlah_kk,
+                        SUM(CASE WHEN fn_cek_kelayakan_mustahik(id) = 1 THEN 1 ELSE 0 END) AS jumlah_layak
+                 FROM mustahik
+                 GROUP BY COALESCE(NULLIF(TRIM(alamat_rt_rw), ''), 'Belum Diisi')
+                 ORDER BY wilayah_rt_rw ASC"
             );
 
             $sql = 'SELECT m.id, m.nik, m.nama_lengkap, m.kategori_asnaf_id,
@@ -62,9 +79,71 @@ class MustahikController extends Controller
                 $bindings[] = $statusFilter;
             }
 
-            $sql .= ' ORDER BY m.status_verifikasi = \'Menunggu\' DESC, m.nama_lengkap ASC LIMIT 250';
+            if ($rtRwFilter !== '' && $rtRwFilter !== 'SEMUA') {
+                if ($rtRwFilter === 'Belum Diisi') {
+                    $sql .= " AND (m.alamat_rt_rw IS NULL OR TRIM(m.alamat_rt_rw) = '')";
+                } else {
+                    $sql .= ' AND TRIM(m.alamat_rt_rw) = ?';
+                    $bindings[] = $rtRwFilter;
+                }
+            }
+
+            $sql .= ' ORDER BY COALESCE(m.alamat_rt_rw, \'ZZZZ\') ASC, m.status_verifikasi = \'Menunggu\' DESC, m.nama_lengkap ASC LIMIT 500';
 
             $daftarMustahik = DB::connection('mysql')->select($sql, $bindings);
+
+            // Ambil catatan penerimaan zakat per mustahik & jenis zakat pada periode/tahun aktif
+            $catatanMap = [];
+            if ($periodeAktif && isset($periodeAktif->id)) {
+                $catatanRows = DB::connection('mysql')->select(
+                    'SELECT cpm.mustahik_id, cpm.jenis_dana_id, jd.kode_dana, jd.nama_dana,
+                            SUM(cpm.jumlah_diterima_kali) AS jumlah_diterima_kali,
+                            SUM(cpm.total_nominal_diterima) AS total_nominal_diterima,
+                            SUM(cpm.total_beras_diterima_kg) AS total_beras_diterima_kg,
+                            MAX(cpm.terakhir_diterima_pada) AS terakhir_diterima_pada
+                     FROM catatan_penerimaan_mustahik cpm
+                     INNER JOIN jenis_dana jd ON jd.id = cpm.jenis_dana_id
+                     WHERE cpm.periode_id = ? OR cpm.tahun_masehi = ?
+                     GROUP BY cpm.mustahik_id, cpm.jenis_dana_id, jd.kode_dana, jd.nama_dana
+                     ORDER BY jd.kode_dana ASC',
+                    [(int) $periodeAktif->id, (int) $periodeAktif->tahun_masehi]
+                );
+
+                foreach ($catatanRows as $cRow) {
+                    $mId = (int) $cRow->mustahik_id;
+                    $catatanMap[$mId][] = [
+                        'jenis_dana_id' => (int) $cRow->jenis_dana_id,
+                        'kode_dana' => (string) $cRow->kode_dana,
+                        'nama_dana' => (string) $cRow->nama_dana,
+                        'jumlah_diterima_kali' => (int) $cRow->jumlah_diterima_kali,
+                        'total_nominal_diterima' => (float) $cRow->total_nominal_diterima,
+                        'total_beras_diterima_kg' => (float) $cRow->total_beras_diterima_kg,
+                        'terakhir_diterima_pada' => $cRow->terakhir_diterima_pada,
+                    ];
+                }
+            }
+
+            $filteredMustahik = [];
+            foreach ($daftarMustahik as $row) {
+                $mId = (int) $row->id;
+                $items = $catatanMap[$mId] ?? [];
+                $totalKali = 0;
+                foreach ($items as $it) {
+                    $totalKali += $it['jumlah_diterima_kali'];
+                }
+                $row->penerimaan_periode_ini = $items;
+                $row->total_kali_terima = $totalKali;
+
+                if ($penerimaanFilter === 'SUDAH_TERIMA' && $totalKali === 0) {
+                    continue;
+                }
+                if ($penerimaanFilter === 'BELUM_TERIMA' && $totalKali > 0) {
+                    continue;
+                }
+
+                $filteredMustahik[] = $row;
+            }
+            $daftarMustahik = $filteredMustahik;
 
             $riwayatVerifikasi = DB::connection('mysql')->select(
                 'SELECT vm.id, vm.mustahik_id, m.nik AS nik_mustahik, m.nama_lengkap AS nama_mustahik,
@@ -84,11 +163,14 @@ class MustahikController extends Controller
         return Inertia::render('Mustahik/Index', [
             'daftarMustahik' => $daftarMustahik,
             'daftarAsnaf' => $daftarAsnaf,
+            'indeksRtRw' => $indeksRtRw,
             'riwayatVerifikasi' => $riwayatVerifikasi,
             'filters' => [
                 'q' => $search,
                 'asnaf' => $asnafFilter,
                 'status' => $statusFilter,
+                'rt_rw' => $rtRwFilter,
+                'penerimaan' => $penerimaanFilter,
             ],
             'rdbmsError' => $rdbmsError,
         ]);

@@ -154,6 +154,12 @@ class PenghimpunanController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'jumlah_jiwa' => ($request->input('jumlah_jiwa') === '' || $request->input('jumlah_jiwa') === null) ? 1 : $request->input('jumlah_jiwa'),
+            'nominal' => ($request->input('nominal') === '' || $request->input('nominal') === null) ? 0 : $request->input('nominal'),
+            'berat_beras_kg' => ($request->input('berat_beras_kg') === '' || $request->input('berat_beras_kg') === null) ? 0 : $request->input('berat_beras_kg'),
+        ]);
+
         $validated = $request->validate([
             'no_kwitansi' => ['nullable', 'string', 'max:40'],
             'muzaki_id' => ['required', 'integer'],

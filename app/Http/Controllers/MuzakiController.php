@@ -16,11 +16,21 @@ class MuzakiController extends Controller
     {
         $search = trim((string) $request->query('q', ''));
         $jenisFilter = trim((string) $request->query('jenis', 'SEMUA'));
+        $rtRwFilter = trim((string) $request->query('rt_rw', 'SEMUA'));
 
         $daftarMuzaki = [];
+        $indeksRtRw = [];
         $rdbmsError = null;
 
         try {
+            $indeksRtRw = DB::connection('mysql')->select(
+                "SELECT COALESCE(NULLIF(TRIM(alamat_rt_rw), ''), 'Belum Diisi') AS wilayah_rt_rw,
+                        COUNT(id) AS jumlah_kk
+                 FROM muzaki
+                 GROUP BY COALESCE(NULLIF(TRIM(alamat_rt_rw), ''), 'Belum Diisi')
+                 ORDER BY wilayah_rt_rw ASC"
+            );
+
             $sql = 'SELECT m.id, m.nik, m.nama_lengkap, m.no_hp, m.alamat_rt_rw, m.jenis_muzaki,
                            fn_hitung_jiwa_muzaki(m.id) AS jumlah_jiwa,
                            (SELECT COUNT(*) FROM anggota_keluarga_muzaki ak WHERE ak.muzaki_id = m.id) AS jumlah_anggota_terdaftar,
@@ -43,7 +53,16 @@ class MuzakiController extends Controller
                 $bindings[] = $jenisFilter;
             }
 
-            $sql .= ' ORDER BY m.nama_lengkap ASC LIMIT 200';
+            if ($rtRwFilter !== '' && $rtRwFilter !== 'SEMUA') {
+                if ($rtRwFilter === 'Belum Diisi') {
+                    $sql .= " AND (m.alamat_rt_rw IS NULL OR TRIM(m.alamat_rt_rw) = '')";
+                } else {
+                    $sql .= ' AND TRIM(m.alamat_rt_rw) = ?';
+                    $bindings[] = $rtRwFilter;
+                }
+            }
+
+            $sql .= ' ORDER BY COALESCE(m.alamat_rt_rw, \'ZZZZ\') ASC, m.nama_lengkap ASC LIMIT 500';
 
             $daftarMuzaki = DB::connection('mysql')->select($sql, $bindings);
         } catch (Throwable) {
@@ -52,9 +71,11 @@ class MuzakiController extends Controller
 
         return Inertia::render('Muzaki/Index', [
             'daftarMuzaki' => $daftarMuzaki,
+            'indeksRtRw' => $indeksRtRw,
             'filters' => [
                 'q' => $search,
                 'jenis' => $jenisFilter,
+                'rt_rw' => $rtRwFilter,
             ],
             'rdbmsError' => $rdbmsError,
         ]);

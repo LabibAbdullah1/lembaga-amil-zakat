@@ -16,6 +16,8 @@ class PeriodeRamadhanController extends Controller
     public function index(): Response
     {
         $daftarPeriode = [];
+        $statusDanaFitrah = null;
+        $danaLintasPeriode = [];
         $rdbmsError = null;
 
         try {
@@ -24,12 +26,31 @@ class PeriodeRamadhanController extends Controller
                  FROM periode_ramadhan
                  ORDER BY tahun_masehi DESC, id DESC'
             );
+
+            $statusDanaFitrah = DB::connection('mysql')->selectOne(
+                "SELECT jd.id, jd.kode_dana, jd.nama_dana, jd.saldo_tersedia, jd.saldo_beras_kg,
+                        (SELECT COUNT(*) FROM penyaluran_dana pd WHERE pd.jenis_dana_id = jd.id AND pd.status_persetujuan IN ('Draft', 'Disetujui')) AS bkk_pending
+                 FROM jenis_dana jd
+                 WHERE jd.kode_dana = 'ZKT-FTR'
+                 LIMIT 1"
+            );
+
+            $danaLintasPeriode = DB::connection('mysql')->select(
+                "SELECT id, kode_dana, nama_dana, saldo_tersedia, saldo_beras_kg
+                 FROM jenis_dana
+                 WHERE kategori_utama = 'Zakat'
+                   AND kode_dana <> 'ZKT-FTR'
+                   AND NOT EXISTS (SELECT 1 FROM jenis_dana c WHERE c.parent_id = jenis_dana.id)
+                 ORDER BY kode_dana ASC"
+            );
         } catch (Throwable) {
             $daftarPeriode = [];
         }
 
         return Inertia::render('Master/Periode', [
             'daftarPeriode' => $daftarPeriode,
+            'statusDanaFitrah' => $statusDanaFitrah,
+            'danaLintasPeriode' => $danaLintasPeriode,
             'rdbmsError' => $rdbmsError,
         ]);
     }

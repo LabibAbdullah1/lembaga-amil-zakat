@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
-import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { PeranPengguna } from '@/types';
@@ -24,11 +23,11 @@ const ROLE_QUICK_TIPS: Record<PeranPengguna, RoleQuickTip> = {
         caution: 'Saldo kantong dana tidak boleh diubah secara manual di luar transaksi penerimaan dan penyaluran resmi.',
     },
     Amil_Penerima: {
-        badgeLabel: 'Panduan Kasir Loket ZIS',
-        headline: 'Pelayanan Cepat Penerimaan Zakat Fitrah, Mal, Infak & Wakaf',
+        badgeLabel: 'Panduan Kasir Loket Zakat',
+        headline: 'Pelayanan Cepat Penerimaan Zakat Fitrah & Zakat Mal',
         bullets: [
             'Pilih atau daftarkan Muzaki beserta anggota keluarga (KK) terlebih dahulu agar jumlah jiwa terisi otomatis.',
-            'Pilih sub-dana operasional (misal Zakat Fitrah Uang/Beras) dan metode pembayaran, lalu simpan kwitansi.',
+            'Pilih kantong dana Zakat (Fitrah, Profesi, atau Perniagaan) dan metode pembayaran, lalu simpan kwitansi.',
             'Unduh PDF Kwitansi sebagai tanda terima sah. Gunakan tombol Batalkan (Void) disertai alasan jika terjadi salah input.',
         ],
         caution: 'Kwitansi yang sudah terbit tidak dihapus fisik; pembatalan (void) otomatis mengembalikan saldo kantong dana.',
@@ -97,24 +96,18 @@ export function RoleGuideBanner({ role = 'Admin', moduleHint }: RoleGuideBannerP
                 <div className="flex items-center gap-2">
                     <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         aria-expanded={expanded}
                         onClick={() => setExpanded((prev) => !prev)}
                     >
-                        <span>{expanded ? 'Ringkas' : 'Langkah Kerja'}</span>
+                        <span>{expanded ? 'Tutup Langkah' : 'Lihat Langkah Kerja'}</span>
                         {expanded ? (
                             <ChevronUp className="h-4 w-4" aria-hidden="true" />
                         ) : (
                             <ChevronDown className="h-4 w-4" aria-hidden="true" />
                         )}
                     </Button>
-
-                    <UserGuideDialog
-                        currentRole={role}
-                        triggerVariant="outline"
-                        triggerLabel="Panduan Lengkap"
-                    />
                 </div>
             </div>
 

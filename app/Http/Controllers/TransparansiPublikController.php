@@ -33,7 +33,7 @@ class TransparansiPublikController extends Controller
                 ->select('SELECT * FROM v_laporan_penyaluran_publik LIMIT 100');
 
             $rekapMuzaki = DB::connection('mysql_laporan')
-                ->select('SELECT * FROM v_rekap_penghimpunan_muzaki LIMIT 50');
+                ->select('SELECT * FROM v_rekap_penghimpunan_muzaki ORDER BY tanggal_transaksi_terakhir DESC, transaksi_terakhir_id DESC LIMIT 50');
         } catch (Throwable) {
             $saldoDana = [];
             $rekapAsnaf = [];

@@ -71,14 +71,23 @@ interface RiwayatVerifikasiRow {
     catatan_survei: string | null;
 }
 
+interface IndeksRtRwItem {
+    wilayah_rt_rw: string;
+    jumlah_kk: number;
+    jumlah_layak: number;
+}
+
 interface MustahikIndexProps {
     daftarMustahik: MustahikRow[];
     daftarAsnaf: KategoriAsnaf[];
+    indeksRtRw?: IndeksRtRwItem[];
     riwayatVerifikasi: RiwayatVerifikasiRow[];
     filters: {
         q: string;
         asnaf: string;
         status: string;
+        rt_rw?: string;
+        penerimaan?: string;
     };
     rdbmsError?: string | null;
 }
@@ -86,6 +95,7 @@ interface MustahikIndexProps {
 export default function MustahikIndex({
     daftarMustahik = [],
     daftarAsnaf = [],
+    indeksRtRw = [],
     riwayatVerifikasi = [],
     filters,
     rdbmsError,
@@ -101,6 +111,8 @@ export default function MustahikIndex({
     const [searchQuery, setSearchQuery] = React.useState<string>(filters?.q ?? '');
     const [asnafFilter, setAsnafFilter] = React.useState<string>(filters?.asnaf ?? 'SEMUA');
     const [statusFilter, setStatusFilter] = React.useState<string>(filters?.status ?? 'SEMUA');
+    const [rtRwFilter, setRtRwFilter] = React.useState<string>(filters?.rt_rw ?? 'SEMUA');
+    const [penerimaanFilter, setPenerimaanFilter] = React.useState<string>(filters?.penerimaan ?? 'SEMUA');
 
     const [formDialogOpen, setFormDialogOpen] = React.useState<boolean>(false);
     const [editingMustahik, setEditingMustahik] = React.useState<MustahikRow | null>(null);
@@ -148,18 +160,45 @@ export default function MustahikIndex({
         catatan_survei: '',
     });
 
-    const applyFilters = (qVal: string, asnafVal: string, statusVal: string) => {
-        router.get(
-            '/mustahik',
-            { q: qVal, asnaf: asnafVal, status: statusVal },
-            { preserveState: true, replace: true }
-        );
-    };
+    const [isSearching, setIsSearching] = React.useState<boolean>(false);
+    const isFirstRenderRef = React.useRef<boolean>(true);
 
-    const handleFilterSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        applyFilters(searchQuery, asnafFilter, statusFilter);
-    };
+    const applyFilters = React.useCallback(
+        (
+            qVal: string,
+            asnafVal: string,
+            statusVal: string,
+            rtRwVal: string = rtRwFilter,
+            penerimaanVal: string = penerimaanFilter
+        ) => {
+            setPageMustahik(1);
+            setIsSearching(true);
+            router.get(
+                '/mustahik',
+                { q: qVal, asnaf: asnafVal, status: statusVal, rt_rw: rtRwVal, penerimaan: penerimaanVal },
+                {
+                    only: ['daftarMustahik', 'indeksRtRw', 'filters'],
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                    onFinish: () => setIsSearching(false),
+                }
+            );
+        },
+        [rtRwFilter, penerimaanFilter]
+    );
+
+    // Pencarian asinkron otomatis (debounced 300ms) tanpa perlu tombol submit
+    React.useEffect(() => {
+        if (isFirstRenderRef.current) {
+            isFirstRenderRef.current = false;
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            applyFilters(searchQuery, asnafFilter, statusFilter, rtRwFilter);
+        }, 300);
+        return () => window.clearTimeout(timer);
+    }, [searchQuery]);
 
     const openCreateModal = () => {
         setEditingMustahik(null);
@@ -268,20 +307,75 @@ export default function MustahikIndex({
                             </TabsList>
 
                             <TabsContent value="mustahik" className="space-y-4 pt-3">
-                                <form onSubmit={handleFilterSubmit} className="grid gap-3 sm:grid-cols-12">
+                                {indeksRtRw.length > 0 && (
+                                    <div className="rounded-xl border bg-muted/25 p-3 space-y-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                            <span className="font-semibold text-foreground">
+                                                Indeks Wilayah per RT / RW (Memudahkan Pencarian Data Ketua RT):
+                                            </span>
+                                            {rtRwFilter !== 'SEMUA' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setRtRwFilter('SEMUA');
+                                                        applyFilters(searchQuery, asnafFilter, statusFilter, 'SEMUA');
+                                                    }}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
+                                                    Tampilkan Semua RT/RW
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant={rtRwFilter === 'SEMUA' ? 'default' : 'outline'}
+                                                onClick={() => {
+                                                    setRtRwFilter('SEMUA');
+                                                    applyFilters(searchQuery, asnafFilter, statusFilter, 'SEMUA');
+                                                }}
+                                                className="h-7 px-2.5 text-xs"
+                                            >
+                                                Semua Wilayah ({indeksRtRw.reduce((acc, r) => acc + Number(r.jumlah_kk), 0)} KK)
+                                            </Button>
+                                            {indeksRtRw.map((rt) => (
+                                                <Button
+                                                    key={rt.wilayah_rt_rw}
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={rtRwFilter === rt.wilayah_rt_rw ? 'default' : 'outline'}
+                                                    onClick={() => {
+                                                        setRtRwFilter(rt.wilayah_rt_rw);
+                                                        applyFilters(searchQuery, asnafFilter, statusFilter, rt.wilayah_rt_rw);
+                                                    }}
+                                                    className="h-7 px-2.5 text-xs tabular-nums"
+                                                >
+                                                    {rt.wilayah_rt_rw} ({rt.jumlah_kk} KK • {rt.jumlah_layak} Layak)
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid gap-3 sm:grid-cols-12">
                                     <div className="sm:col-span-4">
                                         <Label htmlFor="cari-mustahik" className="sr-only">
                                             Cari NIK, Nama, atau Alamat
                                         </Label>
                                         <div className="relative">
                                             <Search
-                                                className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
+                                                className={
+                                                    isSearching
+                                                        ? 'absolute left-3 top-3.5 h-4 w-4 text-primary animate-pulse'
+                                                        : 'absolute left-3 top-3.5 h-4 w-4 text-muted-foreground'
+                                                }
                                                 aria-hidden="true"
                                             />
                                             <Input
                                                 id="cari-mustahik"
                                                 type="search"
-                                                placeholder="Cari NIK 16 digit, nama, atau RT/RW..."
+                                                placeholder="Ketik NIK, nama KK, atau RT/RW..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
                                                 className="pl-9"
@@ -289,12 +383,12 @@ export default function MustahikIndex({
                                         </div>
                                     </div>
 
-                                    <div className="sm:col-span-3">
+                                    <div className="sm:col-span-2">
                                         <Select
                                             value={asnafFilter}
                                             onValueChange={(val) => {
                                                 setAsnafFilter(val);
-                                                applyFilters(searchQuery, val, statusFilter);
+                                                applyFilters(searchQuery, val, statusFilter, rtRwFilter, penerimaanFilter);
                                             }}
                                         >
                                             <SelectTrigger aria-label="Filter Golongan 8 Asnaf">
@@ -311,12 +405,12 @@ export default function MustahikIndex({
                                         </Select>
                                     </div>
 
-                                    <div className="sm:col-span-3">
+                                    <div className="sm:col-span-2">
                                         <Select
                                             value={statusFilter}
                                             onValueChange={(val) => {
                                                 setStatusFilter(val);
-                                                applyFilters(searchQuery, asnafFilter, val);
+                                                applyFilters(searchQuery, asnafFilter, val, rtRwFilter, penerimaanFilter);
                                             }}
                                         >
                                             <SelectTrigger aria-label="Filter Status Verifikasi">
@@ -328,6 +422,25 @@ export default function MustahikIndex({
                                                 <SelectItem value="Layak">Layak</SelectItem>
                                                 <SelectItem value="Tidak_Layak">Tidak Layak</SelectItem>
                                                 <SelectItem value="Kedaluwarsa">Kedaluwarsa (&gt;365h)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="sm:col-span-2">
+                                        <Select
+                                            value={penerimaanFilter}
+                                            onValueChange={(val) => {
+                                                setPenerimaanFilter(val);
+                                                applyFilters(searchQuery, asnafFilter, statusFilter, rtRwFilter, val);
+                                            }}
+                                        >
+                                            <SelectTrigger aria-label="Filter Status Penerimaan Zakat">
+                                                <SelectValue placeholder="Penerimaan" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="SEMUA">Semua Penerimaan</SelectItem>
+                                                <SelectItem value="BELUM_TERIMA">Belum Terima (0x)</SelectItem>
+                                                <SelectItem value="SUDAH_TERIMA">Sudah Terima</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -351,7 +464,7 @@ export default function MustahikIndex({
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                </form>
+                                </div>
 
                                 {daftarMustahik.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center space-y-1">
@@ -372,6 +485,7 @@ export default function MustahikIndex({
                                                         <TableHead>
                                                             Kelayakan Penerima Zakat
                                                         </TableHead>
+                                                        <TableHead>Penerimaan Periode Aktif</TableHead>
                                                         <TableHead className="text-right">Tindakan</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
@@ -429,6 +543,38 @@ export default function MustahikIndex({
                                                                             />
                                                                             Belum Memenuhi Syarat
                                                                         </Badge>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {!row.penerimaan_periode_ini ||
+                                                                    row.penerimaan_periode_ini.length === 0 ? (
+                                                                        <Badge variant="outline" className="text-muted-foreground">
+                                                                            Belum Terima (0x)
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <div className="flex flex-col gap-1">
+                                                                            <Badge
+                                                                                variant={
+                                                                                    (row.total_kali_terima ?? 0) > 1
+                                                                                        ? 'warning'
+                                                                                        : 'success'
+                                                                                }
+                                                                                className="w-fit"
+                                                                            >
+                                                                                Sudah Terima {row.total_kali_terima ?? 0}x
+                                                                            </Badge>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {row.penerimaan_periode_ini.map((item) => (
+                                                                                    <span
+                                                                                        key={item.jenis_dana_id}
+                                                                                        className="inline-flex items-center rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground"
+                                                                                        title={item.nama_dana}
+                                                                                    >
+                                                                                        {item.kode_dana}: {item.jumlah_diterima_kali}x
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="text-right">
@@ -507,6 +653,36 @@ export default function MustahikIndex({
                                                                 <Badge variant="destructive">
                                                                     Belum Memenuhi Syarat
                                                                 </Badge>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex flex-wrap items-center justify-between gap-1.5 rounded bg-muted/40 p-2 text-xs">
+                                                            <span>Penerimaan Periode Ini:</span>
+                                                            {!row.penerimaan_periode_ini ||
+                                                            row.penerimaan_periode_ini.length === 0 ? (
+                                                                <Badge variant="outline" className="text-muted-foreground">
+                                                                    Belum Terima (0x)
+                                                                </Badge>
+                                                            ) : (
+                                                                <div className="flex flex-wrap items-center gap-1">
+                                                                    <Badge
+                                                                        variant={
+                                                                            (row.total_kali_terima ?? 0) > 1
+                                                                                ? 'warning'
+                                                                                : 'success'
+                                                                        }
+                                                                    >
+                                                                        Sudah Terima {row.total_kali_terima ?? 0}x
+                                                                    </Badge>
+                                                                    {row.penerimaan_periode_ini.map((item) => (
+                                                                        <span
+                                                                            key={item.jenis_dana_id}
+                                                                            className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px]"
+                                                                        >
+                                                                            {item.kode_dana}: {item.jumlah_diterima_kali}x
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
                                                             )}
                                                         </div>
 
