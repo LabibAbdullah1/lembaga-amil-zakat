@@ -177,12 +177,22 @@ class PenyaluranController extends Controller
             $sql .= ' ORDER BY pd.id DESC LIMIT 150';
 
             $daftarBkk = DB::connection('mysql')->select($sql, $bindings);
+
+            $jumlahProgramAktif = (int) (DB::connection('mysql')->selectOne(
+                "SELECT COUNT(*) AS total
+                 FROM program_penyaluran pp
+                 INNER JOIN jenis_dana jd ON jd.id = pp.jenis_dana_id
+                 WHERE pp.status_program IN ('Draft', 'Berjalan')
+                   AND jd.kategori_utama = 'Zakat'"
+            )->total ?? 0);
         } catch (Throwable) {
             $daftarBkk = [];
+            $jumlahProgramAktif = 0;
         }
 
         return Inertia::render('Penyaluran/Index', [
             'daftarBkk' => $daftarBkk,
+            'jumlahProgramAktif' => $jumlahProgramAktif,
             'filters' => [
                 'status' => $statusFilter,
                 'q' => $search,
@@ -307,9 +317,7 @@ class PenyaluranController extends Controller
             ];
         }
 
-        $noBkk = ! empty($validated['no_bkk'])
-            ? strtoupper(trim($validated['no_bkk']))
-            : $this->generateNoBkk();
+        $noBkk = $this->generateNoBkk();
 
         if ($errProgram = $this->validateProgramAktifDanDana((int) $validated['program_id'], (int) $validated['jenis_dana_id'])) {
             return back()->withErrors(['program_id' => $errProgram])->with('error', $errProgram);

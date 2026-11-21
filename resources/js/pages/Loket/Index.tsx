@@ -368,14 +368,17 @@ export default function LoketIndex({
                                     <form onSubmit={handleSubmitSetoran} className="space-y-4">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="no_kwitansi">Nomor Kwitansi</Label>
+                                                <Label htmlFor="no_kwitansi">Nomor Kwitansi (Otomatis)</Label>
                                                 <Input
                                                     id="no_kwitansi"
-                                                    required
+                                                    readOnly
+                                                    disabled
                                                     value={data.no_kwitansi}
-                                                    onChange={(e) => setData('no_kwitansi', e.target.value)}
-                                                    className="font-mono text-xs"
+                                                    className="font-mono text-xs bg-muted/60 cursor-not-allowed"
                                                 />
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Dibuat otomatis oleh sistem dan tidak dapat diubah manual.
+                                                </p>
                                             </div>
 
                                             <div className="space-y-1.5">

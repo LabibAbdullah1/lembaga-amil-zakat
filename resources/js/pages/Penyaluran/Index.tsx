@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Eye, FileDown, FileSpreadsheet, Plus, Search } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
@@ -24,7 +24,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatBerasKg, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
-import type { PenyaluranDana, StatusPersetujuanBkk } from '@/types';
+import type { PenyaluranDana, SharedProps, StatusPersetujuanBkk } from '@/types';
 
 interface BkkRow extends PenyaluranDana {
     kode_program: string;
@@ -43,14 +43,18 @@ interface PenyaluranIndexProps {
         status: string;
         q: string;
     };
+    jumlahProgramAktif?: number;
     rdbmsError?: string | null;
 }
 
 export default function PenyaluranIndex({
     daftarBkk = [],
+    jumlahProgramAktif = 1,
     filters,
     rdbmsError,
 }: PenyaluranIndexProps) {
+    const { auth } = usePage<SharedProps>().props;
+    const isAdmin = auth?.user?.peran === 'Admin';
     const [searchQuery, setSearchQuery] = React.useState<string>(filters?.q ?? '');
     const [statusFilter, setStatusFilter] = React.useState<string>(filters?.status ?? 'SEMUA');
     const [currentPage, setCurrentPage] = React.useState<number>(1);
@@ -134,6 +138,21 @@ export default function PenyaluranIndex({
                     </CardHeader>
 
                     <CardContent className="space-y-4">
+                        {jumlahProgramAktif === 0 && (
+                            <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                                <div>
+                                    <p className="font-bold">Seluruh Program Penyaluran Sudah Selesai</p>
+                                    <p>
+                                        Tidak ada program penyaluran berstatus Draft atau Berjalan saat ini. Petugas harus membuat program penyaluran baru terlebih dahulu sebelum mengajukan BKK baru.
+                                    </p>
+                                </div>
+                                {isAdmin && (
+                                    <Button asChild size="sm" variant="outline" className="shrink-0">
+                                        <Link href="/master/program">Buka Master Program</Link>
+                                    </Button>
+                                )}
+                            </div>
+                        )}
                         <div className="grid gap-3 sm:grid-cols-12">
                             <div className="sm:col-span-6">
                                 <Label htmlFor="cari-bkk" className="sr-only">

@@ -206,7 +206,22 @@ export default function MasterProgram({
                         </Button>
                     </CardHeader>
 
-                    <CardContent>
+                    <CardContent className="space-y-4">
+                        {daftarProgram.length > 0 &&
+                            daftarProgram.every((p) => p.status_program === 'Selesai') && (
+                                <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                                    <div>
+                                        <p className="font-bold">Seluruh Program Penyaluran Telah Selesai</p>
+                                        <p>
+                                            Semua program pada periode saat ini sudah berstatus Selesai. Untuk melakukan penyaluran berikutnya, silakan klik <strong>Tambah Program</strong> atau tombol <strong>Tahun Baru</strong> pada program yang sudah selesai.
+                                        </p>
+                                    </div>
+                                    <Button type="button" size="sm" onClick={openCreateModal} className="shrink-0">
+                                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                                        <span>Buat Program Baru</span>
+                                    </Button>
+                                </div>
+                            )}
                         {daftarProgram.length === 0 ? (
                             <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
                                 <p className="text-sm font-semibold">Belum ada data program_penyaluran</p>
@@ -472,17 +487,14 @@ export default function MasterProgram({
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label htmlFor="kode_program">Kode Program</Label>
+                                <Label htmlFor="kode_program">Kode Program (Otomatis)</Label>
                                 <Input
                                     id="kode_program"
-                                    required
-                                    placeholder="Contoh: PRG-FTR-26"
-                                    value={data.kode_program}
-                                    onChange={(e) => setData('kode_program', e.target.value)}
+                                    readOnly
+                                    disabled
+                                    value={editingProgram ? editingProgram.kode_program : 'Otomatis oleh sistem'}
+                                    className="font-mono text-xs bg-muted/60 cursor-not-allowed"
                                 />
-                                {errors.kode_program && (
-                                    <p className="text-xs text-destructive">{errors.kode_program}</p>
-                                )}
                             </div>
 
                             <div className="space-y-1.5">

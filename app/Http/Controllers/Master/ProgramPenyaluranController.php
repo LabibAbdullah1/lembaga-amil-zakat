@@ -83,7 +83,7 @@ class ProgramPenyaluranController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'kode_program' => ['required', 'string', 'max:30'],
+            'kode_program' => ['nullable', 'string', 'max:30'],
             'nama_program' => ['required', 'string', 'max:150'],
             'jenis_dana_id' => ['required', 'integer'],
             'periode_id' => ['required', 'integer'],
@@ -95,11 +95,13 @@ class ProgramPenyaluranController extends Controller
         ]);
 
         return RdbmsErrorHandler::run(function () use ($validated) {
+            $kodeProgram = $this->generateKodeProgram((int) $validated['periode_id']);
+
             DB::connection('mysql')->statement(
                 'INSERT INTO program_penyaluran (kode_program, nama_program, jenis_dana_id, periode_id, anggaran_rencana, target_beras_kg, target_penerima_kk, khusus_amil, status_program)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
-                    strtoupper(trim($validated['kode_program'])),
+                    $kodeProgram,
                     trim($validated['nama_program']),
                     (int) $validated['jenis_dana_id'],
                     (int) $validated['periode_id'],
@@ -112,14 +114,14 @@ class ProgramPenyaluranController extends Controller
             );
 
             return redirect()->route('master.program.index')
-                ->with('success', sprintf('Program penyaluran %s berhasil ditambahkan.', $validated['nama_program']));
+                ->with('success', sprintf('Program penyaluran %s (%s) berhasil ditambahkan.', $validated['nama_program'], $kodeProgram));
         });
     }
 
     public function update(Request $request, int $id): RedirectResponse
     {
         $validated = $request->validate([
-            'kode_program' => ['required', 'string', 'max:30'],
+            'kode_program' => ['nullable', 'string', 'max:30'],
             'nama_program' => ['required', 'string', 'max:150'],
             'jenis_dana_id' => ['required', 'integer'],
             'periode_id' => ['required', 'integer'],
@@ -132,7 +134,7 @@ class ProgramPenyaluranController extends Controller
 
         return RdbmsErrorHandler::run(function () use ($validated, $id) {
             $existing = DB::connection('mysql')->selectOne(
-                'SELECT id, jenis_dana_id, periode_id, khusus_amil FROM program_penyaluran WHERE id = ? LIMIT 1',
+                'SELECT id, kode_program, jenis_dana_id, periode_id, khusus_amil FROM program_penyaluran WHERE id = ? LIMIT 1',
                 [$id]
             );
 
@@ -161,17 +163,16 @@ class ProgramPenyaluranController extends Controller
 
             DB::connection('mysql')->statement(
                 'UPDATE program_penyaluran
-                 SET kode_program = ?, nama_program = ?, jenis_dana_id = ?, periode_id = ?, anggaran_rencana = ?, target_beras_kg = ?, target_penerima_kk = ?, khusus_amil = ?, status_program = ?
+                 SET nama_program = ?, jenis_dana_id = ?, periode_id = ?, anggaran_rencana = ?, target_beras_kg = ?, target_penerima_kk = ?, khusus_amil = ?, status_program = ?
                  WHERE id = ?',
                 [
-                    strtoupper(trim($validated['kode_program'])),
                     trim($validated['nama_program']),
                     (int) $validated['jenis_dana_id'],
                     (int) $validated['periode_id'],
                     (float) $validated['anggaran_rencana'],
                     (float) ($validated['target_beras_kg'] ?? 0),
                     (int) ($validated['target_penerima_kk'] ?? 0),
-                    ! empty($validated['khusus_amil']) ? 1 : 0,
+                    $newKhususAmil,
                     $validated['status_program'],
                     $id,
                 ]
@@ -180,6 +181,44 @@ class ProgramPenyaluranController extends Controller
             return redirect()->route('master.program.index')
                 ->with('success', sprintf('Program penyaluran %s berhasil diperbarui.', $validated['nama_program']));
         });
+    }
+
+    private function generateKodeProgram(int $periodeId): string
+    {
+        $periode = DB::connection('mysql')->selectOne(
+            'SELECT tahun_masehi FROM periode_ramadhan WHERE id = ? LIMIT 1',
+            [$periodeId]
+        );
+        $tahun = $periode ? (int) $periode->tahun_masehi : (int) date('Y');
+        $yy = substr((string) $tahun, -2);
+        $prefix = "PRG-{$yy}-";
+
+        $last = DB::connection('mysql')->selectOne(
+            'SELECT kode_program FROM program_penyaluran WHERE kode_program LIKE ? ORDER BY id DESC LIMIT 1',
+            [$prefix . '%']
+        );
+
+        $seq = 1;
+        if ($last && preg_match('/-(\d+)$/', (string) $last->kode_program, $m)) {
+            $seq = ((int) $m[1]) + 1;
+        } else {
+            $count = (int) (DB::connection('mysql')->selectOne(
+                'SELECT COUNT(*) AS total FROM program_penyaluran WHERE periode_id = ?',
+                [$periodeId]
+            )->total ?? 0);
+            $seq = $count + 1;
+        }
+
+        do {
+            $candidate = sprintf('%s%03d', $prefix, $seq);
+            $exists = DB::connection('mysql')->selectOne(
+                'SELECT id FROM program_penyaluran WHERE kode_program = ? LIMIT 1',
+                [$candidate]
+            );
+            $seq++;
+        } while ($exists);
+
+        return $candidate;
     }
 
     public function selesaikan(int $id): RedirectResponse

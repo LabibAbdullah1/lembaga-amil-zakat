@@ -165,7 +165,8 @@ export default function PenyaluranCreate({
             : [],
     });
 
-    const { hakAmilPerKategori = [] } = usePage<SharedProps>().props;
+    const { auth, hakAmilPerKategori = [] } = usePage<SharedProps>().props;
+    const isAdmin = auth?.user?.peran === 'Admin';
 
     const selectedProgram = React.useMemo(
         () => daftarProgram.find((p) => p.id === data.program_id) ?? null,
@@ -468,6 +469,24 @@ export default function PenyaluranCreate({
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
 
+                {daftarProgram.length === 0 && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                        <div className="space-y-1">
+                            <p className="text-sm font-bold">
+                                Seluruh Program Penyaluran Telah Selesai
+                            </p>
+                            <p>
+                                Tidak ada program penyaluran aktif (Draft / Berjalan) pada periode saat ini. Petugas wajib membuat program penyaluran baru terlebih dahulu (atau meminta Admin membuka program periode/tahun berikutnya) sebelum mengajukan BKK.
+                            </p>
+                        </div>
+                        {isAdmin && (
+                            <Button asChild size="sm" variant="outline" className="shrink-0">
+                                <Link href="/master/program">Buat Program Baru</Link>
+                            </Button>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <Button asChild variant="outline" size="sm">
                         <Link href="/penyaluran">
@@ -509,17 +528,17 @@ export default function PenyaluranCreate({
                             <CardContent className="space-y-4">
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="no_bkk_input">Nomor Dokumen BKK</Label>
+                                        <Label htmlFor="no_bkk_input">Nomor Dokumen BKK (Otomatis)</Label>
                                         <Input
                                             id="no_bkk_input"
-                                            required
+                                            readOnly
+                                            disabled
                                             value={data.no_bkk}
-                                            onChange={(e) => setData('no_bkk', e.target.value)}
-                                            className="font-mono text-xs"
+                                            className="font-mono text-xs bg-muted/60 cursor-not-allowed"
                                         />
-                                        {errors.no_bkk && (
-                                            <p className="text-xs text-destructive">{errors.no_bkk}</p>
-                                        )}
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Dibuat otomatis oleh sistem dan tidak dapat diubah manual.
+                                        </p>
                                     </div>
 
                                     <div className="space-y-1.5">

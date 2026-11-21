@@ -171,9 +171,7 @@ class PenghimpunanController extends Controller
             'berat_beras_kg' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $noKwitansi = ! empty($validated['no_kwitansi'])
-            ? strtoupper(trim($validated['no_kwitansi']))
-            : $this->generateNoKwitansi();
+        $noKwitansi = $this->generateNoKwitansi();
 
         $amilId = (int) $request->user()->id;
 

@@ -344,17 +344,14 @@ export default function MasterJenisDana({
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label htmlFor="kode_dana">Kode Dana Zakat</Label>
+                                <Label htmlFor="kode_dana">Kode Dana Zakat (Otomatis)</Label>
                                 <Input
                                     id="kode_dana"
-                                    required
-                                    placeholder="Contoh: ZKT-FTR"
-                                    value={data.kode_dana}
-                                    onChange={(e) => setData('kode_dana', e.target.value)}
+                                    readOnly
+                                    disabled
+                                    value={editingDana ? editingDana.kode_dana : 'Otomatis oleh sistem'}
+                                    className="font-mono text-xs bg-muted/60 cursor-not-allowed"
                                 />
-                                {errors.kode_dana && (
-                                    <p className="text-xs text-destructive">{errors.kode_dana}</p>
-                                )}
                             </div>
 
                             <div className="space-y-1.5">

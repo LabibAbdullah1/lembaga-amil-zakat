@@ -634,7 +634,7 @@ export default function TransparansiPublik({
                                     </CardTitle>
                                 </div>
                                 <CardDescription>
-                                    Data bersumber langsung dari laporan resmi read-only masjid dengan penyamaran identitas demi menjaga privasi mustahik &amp; muzaki.
+                                    Data bersumber langsung dari laporan resmi read-only masjid dengan penyamaran identitas demi menjaga privasi mustahik &amp; muzaki. Data penyaluran ditampilkan berdasarkan tahun berjalan ({tahunMasehiLabel} M / {tahunHijriahLabel}).
                                 </CardDescription>
                             </div>
 
@@ -750,7 +750,13 @@ export default function TransparansiPublik({
                                 </TabsContent>
 
                                 {/* TAB 2: Distribusi 8 Asnaf */}
-                                <TabsContent value="asnaf" className="pt-4">
+                                <TabsContent value="asnaf" className="space-y-3 pt-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+                                        <span className="text-muted-foreground">
+                                            Menampilkan realisasi penyaluran 8 golongan Asnaf berdasarkan tahun berjalan.
+                                        </span>
+                                        <Badge variant="outline">Tahun {tahunMasehiLabel} M ({tahunHijriahLabel})</Badge>
+                                    </div>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {rekapAsnaf.map((a) => {
                                             const nominal = Number.parseFloat(String(a.total_nominal_disalurkan)) || 0;
@@ -800,6 +806,12 @@ export default function TransparansiPublik({
 
                                 {/* TAB 3: Riwayat Penyaluran BKK (Masked) */}
                                 <TabsContent value="penyaluran" className="space-y-4 pt-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+                                        <span className="text-muted-foreground">
+                                            Riwayat penyaluran BKK resmi berdasarkan tahun berjalan (terurut dari yang terbaru).
+                                        </span>
+                                        <Badge variant="outline">Tahun {tahunMasehiLabel} M</Badge>
+                                    </div>
                                     <div className="relative max-w-md">
                                         <Search
                                             className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
