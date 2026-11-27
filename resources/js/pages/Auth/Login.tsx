@@ -93,43 +93,50 @@ export default function Login() {
             <Head title="Masuk Portal Panitia ZIS & Zakat Fitrah" />
             <OfflineBanner />
 
-            <header className="border-b bg-card/95 backdrop-blur-xs">
-                <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
+            <header className="border-b border-border bg-card/95 backdrop-blur-xs">
+                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
                     <Link
                         href="/transparansi"
-                        className="flex items-center gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="flex items-center gap-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-ring min-w-0"
                     >
                         <img
-                            src="/icons/icon.svg"
-                            alt="Logo LAZ Masjid"
-                            width={38}
-                            height={38}
+                            src="/icons/icon-192x192.png"
+                            alt="Logo Yayasan Istiqamah Rumbai Pesisir"
+                            width={32}
+                            height={32}
                             fetchPriority="high"
-                            className="h-9 w-9 rounded-lg shadow-2xs"
+                            className="h-8 w-8 object-contain shrink-0"
                         />
-                        <div>
-                            <p className="text-sm font-bold tracking-tight">LAZ & Zakat Fitrah Masjid</p>
-                            <p className="text-xs text-muted-foreground">Lembaga Amil Zakat, Infak & Sedekah</p>
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold tracking-tight text-foreground truncate">
+                                LAZ Masjid Istiqamah
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate hidden sm:block">
+                                Rumbai • Portal Panitia
+                            </p>
                         </div>
                     </Link>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                         <ThemeToggle className="h-9 w-9" />
-                        <UserGuideDialog
-                            currentRole="Amil_Penerima"
-                            triggerVariant="outline"
-                            triggerLabel="Panduan Panitia"
-                        />
+                        <div className="hidden sm:block">
+                            <UserGuideDialog
+                                currentRole="Amil_Penerima"
+                                triggerVariant="outline"
+                                triggerLabel="Panduan Panitia"
+                            />
+                        </div>
                         {installPrompt && (
-                            <Button type="button" variant="outline" size="sm" onClick={handleInstallPwa}>
-                                <Smartphone className="h-4 w-4" aria-hidden="true" />
+                            <Button type="button" variant="outline" size="sm" onClick={handleInstallPwa} className="hidden md:inline-flex h-9">
+                                <Smartphone className="h-4 w-4 sm:mr-1" aria-hidden="true" />
                                 <span className="hidden sm:inline">Pasang di HP</span>
                             </Button>
                         )}
-                        <Button asChild variant="ghost" size="sm">
+                        <Button asChild variant="outline" size="sm" className="h-9 px-2.5 sm:px-3">
                             <Link href="/transparansi">
-                                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                                <span>Transparansi Publik</span>
+                                <ArrowLeft className="h-4 w-4 sm:mr-1.5" aria-hidden="true" />
+                                <span className="hidden sm:inline">Transparansi Publik</span>
+                                <span className="sm:hidden text-xs">Beranda</span>
                             </Link>
                         </Button>
                     </div>

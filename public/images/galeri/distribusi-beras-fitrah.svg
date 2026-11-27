@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064E3B" />
+      <stop offset="50%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#065F46" />
+    </linearGradient>
+    <linearGradient id="gold1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <linearGradient id="rice" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2E8F0" />
+    </linearGradient>
+    <pattern id="islamic-pat" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M20 0 L40 20 L20 40 L0 20 Z" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5" />
+      <circle cx="20" cy="20" r="6" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg1)" />
+  <rect width="800" height="500" fill="url(#islamic-pat)" />
+
+  <!-- Badge Header -->
+  <rect x="50" y="45" width="220" height="36" rx="18" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.25)" />
+  <circle cx="68" cy="63" r="6" fill="#34D399" />
+  <text x="84" y="68" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" font-weight="600" fill="#E6FFFA" letter-spacing="0.5">DOKUMENTASI PENYALURAN</text>
+
+  <!-- Main Illustration Art: Rice Sack & Hands of Giving -->
+  <g transform="translate(490, 140)">
+    <!-- Karung Beras Utama -->
+    <path d="M 40 70 Q 30 190 50 250 Q 120 270 190 250 Q 210 190 200 70 Q 120 50 40 70 Z" fill="url(#rice)" stroke="#CBD5E1" stroke-width="3" filter="drop-shadow(0 15px 25px rgba(0,0,0,0.3))" />
+    <!-- Tali Ikatan Karung -->
+    <ellipse cx="120" cy="70" rx="75" ry="14" fill="#E2E8F0" stroke="#94A3B8" stroke-width="2.5" />
+    <path d="M 100 60 C 110 40 130 40 140 60" fill="none" stroke="#B45309" stroke-width="4" stroke-linecap="round" />
+    <!-- Label Kemasan Beras -->
+    <rect x="70" y="115" width="100" height="90" rx="8" fill="#F8FAFC" stroke="#059669" stroke-width="2" />
+    <text x="120" y="142" font-family="sans-serif" font-size="11" font-weight="700" fill="#047857" text-anchor="middle">ZAKAT FITRAH</text>
+    <text x="120" y="165" font-family="serif" font-size="20" font-weight="bold" fill="#0F172A" text-anchor="middle">5 KG</text>
+    <text x="120" y="186" font-family="sans-serif" font-size="9" font-weight="600" fill="#64748B" text-anchor="middle">LAZ ISTIQAMAH</text>
+    
+    <!-- Karung Kedua di Samping -->
+    <path d="M -30 130 Q -40 220 -20 260 Q 30 275 80 260 Q 90 210 80 130 Z" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2" opacity="0.85" />
+    <ellipse cx="25" cy="130" rx="50" ry="10" fill="#E2E8F0" stroke="#94A3B8" stroke-width="2" />
+  </g>
+
+  <!-- Typography Content -->
+  <g transform="translate(50, 130)">
+    <text x="0" y="45" font-family="'Newsreader', serif" font-size="34" font-weight="600" fill="#FFFFFF" line-height="1.2">
+      Distribusi Zakat Fitrah
+    </text>
+    <text x="0" y="85" font-family="'Newsreader', serif" font-size="30" font-weight="400" fill="#A7F3D0">
+      2.850 Kg Beras Kualitas Utama
+    </text>
+
+    <!-- Info Chips -->
+    <g transform="translate(0, 130)">
+      <!-- Chip Penerima -->
+      <rect x="0" y="0" width="160" height="60" rx="8" fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.15)" />
+      <text x="16" y="24" font-family="sans-serif" font-size="11" fill="#A7F3D0">Total Penerima</text>
+      <text x="16" y="48" font-family="'Plus Jakarta Sans', sans-serif" font-size="18" font-weight="bold" fill="#FFFFFF">570 Jiwa Mustahik</text>
+
+      <!-- Chip Wilayah -->
+      <rect x="175" y="0" width="180" height="60" rx="8" fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.15)" />
+      <text x="191" y="24" font-family="sans-serif" font-size="11" fill="#A7F3D0">Wilayah Sebaran</text>
+      <text x="191" y="48" font-family="'Plus Jakarta Sans', sans-serif" font-size="18" font-weight="bold" fill="#FFFFFF">5 RW Rumbai Pesisir</text>
+    </g>
+
+    <!-- Kutipan Syariat -->
+    <text x="0" y="240" font-family="sans-serif" font-size="12" fill="rgba(255,255,255,0.8)" font-style="italic">
+      "Memastikan setiap keluarga dhuafa menyambut hari raya dengan gembira dan berkecukupan."
+    </text>
+  </g>
+
+  <!-- Footer Tag -->
+  <rect x="0" y="460" width="800" height="40" fill="rgba(0,0,0,0.3)" />
+  <text x="50" y="485" font-family="sans-serif" font-size="12" fill="#E2E8F0">📅 Ramadhan 1446 H / 2026 M • Terverifikasi oleh Panitia Amil ZIS Masjid Istiqamah</text>
+</svg>

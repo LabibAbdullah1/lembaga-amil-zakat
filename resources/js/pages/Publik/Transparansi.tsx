@@ -1,42 +1,22 @@
-import * as React from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import {
-    ArrowUp,
-    BookOpen,
-    Building2,
-    Calculator,
-    CalendarClock,
-    CheckCircle2,
-    Clock,
-    Database,
-    Eye,
-    HandCoins,
-    HeartHandshake,
-    KeyRound,
-    LayoutDashboard,
-    Mail,
-    MapPin,
-    Megaphone,
-    Menu,
-    Minus,
-    Phone,
-    Plus,
-    RefreshCw,
-    Scale,
-    Search,
-    ShieldCheck,
-    Smartphone,
-    Users,
-    Wallet,
-    Wheat,
-} from 'lucide-react';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
-import { LazySection } from '@/components/zis/LazySection';
-import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
-import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -61,8 +41,14 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { LazySection } from '@/components/zis/LazySection';
+import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
+import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { formatBerasKg, formatPercentage, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
 import type {
+    GaleriKegiatanItem,
+    KategoriGaleri,
     KategoriUtamaDana,
     SharedProps,
     ViewLaporanPenyaluranPublik,
@@ -70,6 +56,43 @@ import type {
     ViewRekapPenyaluranAsnaf,
     ViewSaldoJenisDana,
 } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    ArrowUp,
+    BookOpen,
+    Building2,
+    Calculator,
+    CalendarClock,
+    Camera,
+    CheckCircle2,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Database,
+    Expand,
+    Eye,
+    HandCoins,
+    Images,
+    KeyRound,
+    LayoutDashboard,
+    Mail,
+    MapPin,
+    Megaphone,
+    Menu,
+    Minus,
+    Phone,
+    Plus,
+    RefreshCw,
+    Search,
+    ShieldCheck,
+    Smartphone,
+    Users,
+    Wallet,
+    Wheat,
+    X,
+} from 'lucide-react';
+import * as React from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
     prompt: () => Promise<void>;
@@ -81,8 +104,27 @@ interface TransparansiProps {
     rekapAsnaf: ViewRekapPenyaluranAsnaf[];
     laporanPenyaluranPublik: ViewLaporanPenyaluranPublik[];
     rekapMuzaki?: ViewRekapPenghimpunanMuzaki[];
+    galeriKegiatan?: GaleriKegiatanItem[];
     rdbmsError?: string | null;
 }
+
+const KATEGORI_LABEL_MAP: Record<string, string> = {
+    Zakat_Fitrah: 'Zakat Fitrah',
+    Zakat_Mal: 'Zakat Mal & Profesi',
+    Santunan_Dhuafa: 'Santunan Yatim & Dhuafa',
+    Pemberdayaan: 'Pemberdayaan Usaha',
+    Tanggap_Bencana: 'Tanggap Bencana',
+    Kegiatan_Amil: 'Layanan Amil',
+};
+
+const GALERI_KATEGORI_FILTERS = [
+    { key: 'SEMUA', label: 'Semua Bukti' },
+    { key: 'Zakat_Fitrah', label: 'Zakat Fitrah' },
+    { key: 'Zakat_Mal', label: 'Zakat Mal' },
+    { key: 'Santunan_Dhuafa', label: 'Santunan Yatim' },
+    { key: 'Pemberdayaan', label: 'Pemberdayaan' },
+    { key: 'Kegiatan_Amil', label: 'Layanan Amil' },
+] as const;
 
 const ASNAF_DESCRIPTIONS: Record<string, string> = {
     'ASN-01': 'Fakir: Warga yang tidak memiliki harta maupun tenaga untuk memenuhi kebutuhan pokok.',
@@ -136,6 +178,7 @@ const PROFIL_PILLARS = [
 
 const NAV_ITEMS = [
     { id: 'profil', label: 'Profil Lembaga' },
+    { id: 'galeri', label: 'Galeri Kegiatan' },
     { id: 'kalkulator', label: 'Kalkulator Zakat' },
     { id: 'transparansi', label: 'Transparansi Dana' },
     { id: 'layanan', label: 'Cara Tunaikan' },
@@ -147,10 +190,12 @@ export default function TransparansiPublik({
     rekapAsnaf = [],
     laporanPenyaluranPublik = [],
     rekapMuzaki = [],
+    galeriKegiatan = [],
     rdbmsError,
 }: TransparansiProps) {
     const { auth, periodeAktif } = usePage<SharedProps>().props;
     const isAuthenticated = Boolean(auth?.user);
+    const isAdmin = auth?.user?.peran === 'Admin';
 
     const [installPrompt, setInstallPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
     const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
@@ -158,6 +203,36 @@ export default function TransparansiPublik({
     const [activeSection, setActiveSection] = React.useState<string>('profil');
     const [showBackToTop, setShowBackToTop] = React.useState<boolean>(false);
     const [activePillarId, setActivePillarId] = React.useState<string>('audit');
+
+    // Filter & Lightbox Galeri Dokumentasi Kegiatan
+    const [galeriKategori, setGaleriKategori] = React.useState<string>('SEMUA');
+    const [activeFotoModal, setActiveFotoModal] = React.useState<GaleriKegiatanItem | null>(null);
+    const [activeFotoIndex, setActiveFotoIndex] = React.useState<number>(0);
+
+    const filteredGaleri = React.useMemo(() => {
+        if (galeriKategori === 'SEMUA') return galeriKegiatan;
+        return galeriKegiatan.filter((item) => item.kategori === galeriKategori);
+    }, [galeriKegiatan, galeriKategori]);
+
+    const openLightbox = (item: GaleriKegiatanItem) => {
+        const idx = filteredGaleri.findIndex((g) => g.id === item.id);
+        setActiveFotoIndex(idx >= 0 ? idx : 0);
+        setActiveFotoModal(item);
+    };
+
+    const nextFoto = () => {
+        if (filteredGaleri.length === 0) return;
+        const nextIdx = (activeFotoIndex + 1) % filteredGaleri.length;
+        setActiveFotoIndex(nextIdx);
+        setActiveFotoModal(filteredGaleri[nextIdx]);
+    };
+
+    const prevFoto = () => {
+        if (filteredGaleri.length === 0) return;
+        const prevIdx = (activeFotoIndex - 1 + filteredGaleri.length) % filteredGaleri.length;
+        setActiveFotoIndex(prevIdx);
+        setActiveFotoModal(filteredGaleri[prevIdx]);
+    };
 
     // Filter Tabel Publik
     const [cariDana, setCariDana] = React.useState<string>('');
@@ -171,7 +246,8 @@ export default function TransparansiPublik({
     const tarifFitrah = Number(periodeAktif?.nominal_fitrah_per_jiwa ?? 45000);
     const takaranBeras = Number(periodeAktif?.beras_per_jiwa_kg ?? 2.5);
     const penghasilanNumeric = Math.max(0, Number.parseFloat(penghasilanBulanan) || 0);
-    const nishabBulananReferensi = 7100000; // Acuan nishab bulanan setara 85g emas / 12 bulan
+    const nishabTahunanReferensi = 91681728; // SK Ketua BAZNAS RI Nomor 15 Tahun 2026 setara 85 gram emas
+    const nishabBulananReferensi = 7640144; // Rp91.681.728 / 12 bulan = Rp7.640.144 per bulan
     const wajibZakatProfesi = penghasilanNumeric >= nishabBulananReferensi;
     const zakatProfesiBulanan = wajibZakatProfesi ? Math.round(penghasilanNumeric * 0.025) : 0;
 
@@ -301,168 +377,352 @@ export default function TransparansiPublik({
             <Head title="LAZ Masjid Istiqamah Rumbai | Portal Transparansi Zakat" />
             <OfflineBanner />
 
-            {/* Navigasi Minimalis 64px ala Anthropic */}
+            {/* Navigasi Minimalis 64px Editorial Anthropic dengan Link Terfokus & Dropdown */}
             <header
                 ref={headerRef}
                 className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-xs"
             >
-                <div className="mx-auto flex h-16 max-w-[1100px] items-center justify-between gap-4 px-4 sm:px-6">
-                    <Link href="/" className="flex items-center gap-3 min-h-[44px]">
-                        <div className="flex h-9 w-9 items-center justify-center rounded border border-border bg-card">
+                <div className="mx-auto flex h-16 max-w-[1100px] items-center justify-between gap-3 px-4 sm:px-6">
+                    {/* Brand / Logo */}
+                    <Link href="/" className="flex items-center gap-2.5 min-h-[44px] shrink-0">
+                        <div className="flex h-9 w-9 items-center justify-center rounded border border-border bg-card shadow-2xs">
                             <img
-                                src="/icons/icon.svg"
-                                alt="Logo LAZ Masjid Istiqamah Rumbai"
-                                width={24}
-                                height={24}
+                                src="/icons/icon-192x192.png"
+                                alt="Logo Yayasan Istiqamah Rumbai Pesisir"
+                                width={28}
+                                height={28}
                                 fetchPriority="high"
-                                className="h-6 w-6 rounded-sm"
+                                className="h-7 w-7 object-contain"
                             />
                         </div>
-                        <div className="leading-tight">
-                            <p className="font-serif text-base font-medium tracking-tight text-foreground">
+                        <div className="leading-tight min-w-0">
+                            <p className="font-serif text-base font-medium tracking-tight text-foreground truncate">
                                 LAZ Masjid Istiqamah
                             </p>
-                            <p className="text-[11px] text-muted-foreground">
-                                Rumbai, Pekanbaru
+                            <p className="text-[11px] text-muted-foreground truncate hidden sm:block">
+                                Rumbai • Transparansi ZIS
                             </p>
                         </div>
                     </Link>
 
-                    <nav aria-label="Navigasi Bagian Halaman" className="hidden lg:flex items-center gap-6">
-                        {NAV_ITEMS.map((item) => {
-                            const isActive = activeSection === item.id;
-                            return (
-                                <a
-                                    key={item.id}
-                                    href={`#${item.id}`}
-                                    onClick={(e) => scrollToSection(e, item.id)}
-                                    className={`inline-flex min-h-[44px] items-center text-[13px] font-medium transition-colors ${
-                                        isActive
-                                            ? 'text-primary'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                    }`}
+                    {/* Navigasi Desktop: Ramping, Terstruktur & Tidak Menumpuk */}
+                    <nav aria-label="Navigasi Ruang Publik" className="hidden lg:flex items-center gap-1 xl:gap-2">
+                        <a
+                            href="#transparansi"
+                            onClick={(e) => scrollToSection(e, 'transparansi')}
+                            className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors ${activeSection === 'transparansi'
+                                ? 'bg-accent/70 text-primary font-semibold'
+                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                }`}
+                        >
+                            <Database className="h-4 w-4" aria-hidden="true" />
+                            <span>Transparansi Dana</span>
+                        </a>
+
+                        <a
+                            href="#galeri"
+                            onClick={(e) => scrollToSection(e, 'galeri')}
+                            className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors ${activeSection === 'galeri'
+                                ? 'bg-accent/70 text-primary font-semibold'
+                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                }`}
+                        >
+                            <Images className="h-4 w-4" aria-hidden="true" />
+                            <span>Galeri Kegiatan</span>
+                        </a>
+
+                        <a
+                            href="#kalkulator"
+                            onClick={(e) => scrollToSection(e, 'kalkulator')}
+                            className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors ${activeSection === 'kalkulator'
+                                ? 'bg-accent/70 text-primary font-semibold'
+                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                }`}
+                        >
+                            <Calculator className="h-4 w-4" aria-hidden="true" />
+                            <span>Kalkulator Zakat</span>
+                        </a>
+
+                        {/* Dropdown Menu: Informasi Lembaga & Layanan */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${['profil', 'layanan', 'kontak'].includes(activeSection)
+                                        ? 'bg-accent/70 text-primary font-semibold'
+                                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                        }`}
                                 >
-                                    {item.label}
-                                </a>
-                            );
-                        })}
+                                    <span>Informasi &amp; Layanan</span>
+                                    <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56 p-1.5 space-y-0.5">
+                                <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Lembaga &amp; Syariat
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="#profil"
+                                        onClick={(e) => scrollToSection(e, 'profil')}
+                                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium cursor-pointer"
+                                    >
+                                        <Building2 className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-foreground">Profil Lembaga</span>
+                                            <span className="text-[10px] text-muted-foreground">Tata kelola &amp; asas syariat</span>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="#layanan"
+                                        onClick={(e) => scrollToSection(e, 'layanan')}
+                                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium cursor-pointer"
+                                    >
+                                        <HandCoins className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-foreground">Cara Tunaikan ZIS</span>
+                                            <span className="text-[10px] text-muted-foreground">Rekening BSI &amp; loket masjid</span>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link
+                                        href="/dasar-hukum"
+                                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium cursor-pointer"
+                                    >
+                                        <BookOpen className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-foreground">Dasar Hukum Syariat</span>
+                                            <span className="text-[10px] text-muted-foreground">QS. At-Taubah &amp; Fatwa MUI</span>
+                                        </div>
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="#kontak"
+                                        onClick={(e) => scrollToSection(e, 'kontak')}
+                                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium cursor-pointer"
+                                    >
+                                        <MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-foreground">Kontak &amp; Lokasi</span>
+                                            <span className="text-[10px] text-muted-foreground">Sekretariat DKM Rumbai</span>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                                {installPrompt && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={handleInstallPwa}
+                                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium cursor-pointer"
+                                        >
+                                            <Smartphone className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-foreground">Pasang Aplikasi</span>
+                                                <span className="text-[10px] text-muted-foreground">Akses cepat di layar HP</span>
+                                            </div>
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </nav>
 
-                    <div className="flex items-center gap-2">
-                        <ThemeToggle className="h-9 w-9" />
-
-                        <Button
-                            asChild
-                            variant="ghost"
-                            size="sm"
-                            className="hidden sm:inline-flex min-h-[40px] rounded px-3"
-                        >
-                            <Link href="/dasar-hukum">
-                                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                                <span>Dasar Hukum</span>
-                            </Link>
-                        </Button>
-
+                    {/* Utilitas & Tombol Masuk Desktop (Hanya 3 elemen bersih) */}
+                    <div className="hidden lg:flex items-center gap-2 shrink-0">
                         <UserGuideDialog
                             currentRole={auth?.user?.peran ?? 'Publik'}
                             triggerVariant="outline"
                             triggerLabel="Panduan"
                         />
-
-                        {installPrompt && (
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={handleInstallPwa}
-                                className="hidden md:inline-flex min-h-[40px]"
-                            >
-                                <Smartphone className="h-4 w-4" aria-hidden="true" />
-                                <span>Pasang App</span>
-                            </Button>
-                        )}
-
+                        <ThemeToggle className="h-9 w-9" />
                         {isAuthenticated ? (
-                            <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="hidden sm:inline-flex min-h-[40px]"
-                            >
+                            <Button asChild size="sm">
                                 <Link href="/dashboard">
                                     <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                                     <span>Beranda Panitia</span>
                                 </Link>
                             </Button>
                         ) : (
-                            <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="hidden sm:inline-flex min-h-[40px]"
-                            >
+                            <Button asChild size="sm">
                                 <Link href="/login">
                                     <KeyRound className="h-4 w-4" aria-hidden="true" />
                                     <span>Masuk Panitia</span>
                                 </Link>
                             </Button>
                         )}
+                    </div>
 
-                        {/* Hamburger Menu Mobile (44x44px touch target) */}
+                    {/* Tampilan Mobile & Tablet (< lg): ThemeToggle + Hamburger Drawer */}
+                    <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
+                        <ThemeToggle className="h-9 w-9" />
+
                         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                             <SheetTrigger asChild>
                                 <Button
                                     type="button"
-                                    variant="secondary"
+                                    variant="outline"
                                     size="icon"
                                     aria-label="Buka Menu Navigasi"
-                                    className="lg:hidden h-11 w-11"
+                                    className="h-10 w-10 border-border"
                                 >
                                     <Menu className="h-5 w-5" aria-hidden="true" />
                                 </Button>
                             </SheetTrigger>
                             <SheetContent
                                 side="right"
-                                className="w-72 border-l border-border bg-background text-foreground"
+                                className="flex w-80 max-w-[85vw] flex-col justify-between overflow-y-auto border-l border-border bg-background p-5 text-foreground"
                             >
-                                <SheetHeader className="border-b border-border pb-4 text-left">
-                                    <SheetTitle className="font-serif text-lg font-medium text-foreground">
-                                        LAZ Masjid Istiqamah
-                                    </SheetTitle>
-                                    <p className="text-xs text-muted-foreground">
-                                        Navigasi Portal Transparansi
-                                    </p>
-                                </SheetHeader>
-                                <div className="mt-4 flex flex-col gap-1">
-                                    {NAV_ITEMS.map((item) => (
+                                <div className="space-y-5">
+                                    <SheetHeader className="border-b border-border pb-4 text-left">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-card">
+                                                <img
+                                                    src="/icons/icon-192x192.png"
+                                                    alt="Logo Yayasan Istiqamah Rumbai Pesisir"
+                                                    width={28}
+                                                    height={28}
+                                                    className="h-7 w-7 object-contain"
+                                                />
+                                            </div>
+                                            <div>
+                                                <SheetTitle className="font-serif text-base font-medium text-foreground">
+                                                    LAZ Masjid Istiqamah
+                                                </SheetTitle>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Portal Transparansi &amp; ZIS Rumbai
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </SheetHeader>
+
+                                    <div className="space-y-1">
+                                        <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                            Navigasi Halaman
+                                        </p>
                                         <a
-                                            key={item.id}
-                                            href={`#${item.id}`}
-                                            onClick={(e) => scrollToSection(e, item.id)}
-                                            className="flex min-h-[48px] items-center rounded px-3 text-sm font-medium text-foreground hover:bg-card hover:text-primary"
+                                            href="#transparansi"
+                                            onClick={(e) => scrollToSection(e, 'transparansi')}
+                                            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${activeSection === 'transparansi'
+                                                ? 'bg-primary text-primary-foreground font-semibold'
+                                                : 'text-foreground hover:bg-muted'
+                                                }`}
                                         >
-                                            {item.label}
+                                            <Database className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Transparansi Dana</span>
                                         </a>
-                                    ))}
-                                    <Link
-                                        href="/dasar-hukum"
-                                        className="flex min-h-[48px] items-center gap-2 rounded px-3 text-sm font-medium text-foreground hover:bg-card hover:text-primary"
-                                    >
-                                        <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" />
-                                        <span>Dasar Hukum Syariat</span>
-                                    </Link>
-                                    <div className="pt-2">
-                                        <ThemeToggle showLabel className="w-full justify-center" />
-                                    </div>
-                                    <div className="pt-2">
-                                        <Link
-                                            href={isAuthenticated ? '/dashboard' : '/login'}
-                                            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                                        <a
+                                            href="#galeri"
+                                            onClick={(e) => scrollToSection(e, 'galeri')}
+                                            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${activeSection === 'galeri'
+                                                ? 'bg-primary text-primary-foreground font-semibold'
+                                                : 'text-foreground hover:bg-muted'
+                                                }`}
                                         >
-                                            <KeyRound className="h-4 w-4" aria-hidden="true" />
-                                            <span>{isAuthenticated ? 'Beranda Panitia' : 'Masuk Panitia'}</span>
-                                        </Link>
+                                            <Images className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Galeri Bukti Penyaluran</span>
+                                        </a>
+                                        <a
+                                            href="#kalkulator"
+                                            onClick={(e) => scrollToSection(e, 'kalkulator')}
+                                            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${activeSection === 'kalkulator'
+                                                ? 'bg-primary text-primary-foreground font-semibold'
+                                                : 'text-foreground hover:bg-muted'
+                                                }`}
+                                        >
+                                            <Calculator className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Kalkulator Zakat</span>
+                                        </a>
+                                        <a
+                                            href="#profil"
+                                            onClick={(e) => scrollToSection(e, 'profil')}
+                                            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${activeSection === 'profil'
+                                                ? 'bg-primary text-primary-foreground font-semibold'
+                                                : 'text-foreground hover:bg-muted'
+                                                }`}
+                                        >
+                                            <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Profil &amp; Tata Kelola</span>
+                                        </a>
+                                        <a
+                                            href="#layanan"
+                                            onClick={(e) => scrollToSection(e, 'layanan')}
+                                            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${activeSection === 'layanan'
+                                                ? 'bg-primary text-primary-foreground font-semibold'
+                                                : 'text-foreground hover:bg-muted'
+                                                }`}
+                                        >
+                                            <HandCoins className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Cara Tunaikan ZIS</span>
+                                        </a>
+                                        <a
+                                            href="#kontak"
+                                            onClick={(e) => scrollToSection(e, 'kontak')}
+                                            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${activeSection === 'kontak'
+                                                ? 'bg-primary text-primary-foreground font-semibold'
+                                                : 'text-foreground hover:bg-muted'
+                                                }`}
+                                        >
+                                            <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Kontak &amp; Lokasi</span>
+                                        </a>
                                     </div>
+
+                                    <div className="space-y-1 pt-2 border-t border-border">
+                                        <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                            Syariat &amp; Panduan
+                                        </p>
+                                        <Link
+                                            href="/dasar-hukum"
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-muted"
+                                        >
+                                            <BookOpen className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                            <span>Dasar Hukum Syariat</span>
+                                        </Link>
+                                        <div className="px-1 py-1">
+                                            <UserGuideDialog
+                                                currentRole={auth?.user?.peran ?? 'Publik'}
+                                                triggerVariant="outline"
+                                                triggerLabel="Buka Panduan Jamaah"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 pt-4 border-t border-border">
+                                    {installPrompt && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full justify-center min-h-[44px]"
+                                            onClick={handleInstallPwa}
+                                        >
+                                            <Smartphone className="h-4 w-4 mr-2" aria-hidden="true" />
+                                            <span>Pasang Aplikasi di HP</span>
+                                        </Button>
+                                    )}
+
+                                    <Link
+                                        href={isAuthenticated ? '/dashboard' : '/login'}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                                    >
+                                        {isAuthenticated ? (
+                                            <>
+                                                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                                                <span>Buka Beranda Panitia</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <KeyRound className="h-4 w-4" aria-hidden="true" />
+                                                <span>Masuk Akun Panitia</span>
+                                            </>
+                                        )}
+                                    </Link>
                                 </div>
                             </SheetContent>
                         </Sheet>
@@ -615,11 +875,10 @@ export default function TransparansiPublik({
                                         key={pillar.id}
                                         type="button"
                                         onClick={() => setActivePillarId(pillar.id)}
-                                        className={`w-full rounded-lg border p-5 text-left transition-colors ${
-                                            isSelected
-                                                ? 'border-primary bg-card'
-                                                : 'border-border bg-background hover:border-muted-foreground hover:bg-card/60'
-                                        }`}
+                                        className={`w-full rounded-lg border p-5 text-left transition-colors ${isSelected
+                                            ? 'border-primary bg-card'
+                                            : 'border-border bg-background hover:border-muted-foreground hover:bg-card/60'
+                                            }`}
                                     >
                                         <p className="font-mono text-[11px] text-primary">
                                             {pillar.subtitle}
@@ -661,11 +920,147 @@ export default function TransparansiPublik({
                     </div>
                 </LazySection>
 
+                {/* SECTION: Galeri Dokumentasi Penyaluran & Bukti Kegiatan Nyata */}
+                <LazySection id="galeri" className="scroll-mt-32 space-y-8" minHeightClass="min-h-[400px]">
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                        <div className="space-y-3 max-w-[700px]">
+                            <p className="font-mono text-xs uppercase tracking-wider text-primary">
+                                02 · Bukti Kegiatan &amp; Penyaluran Nyata
+                            </p>
+                            <h2 className="font-serif text-3xl sm:text-[32px] font-medium leading-[1.2] text-foreground">
+                                Dokumentasi Penyaluran ZIS &amp; Layanan Amil
+                            </h2>
+                            <p className="text-[17px] leading-[1.75] text-muted-foreground">
+                                Bukti visual amanah zakat, infak, dan sedekah jamaah yang telah disalurkan langsung kepada mustahik yang berhak serta aktivitas operasional amil di Masjid Istiqamah Rumbai.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <Badge variant="outline" className="px-3 py-1.5 text-xs font-mono">
+                                {filteredGaleri.length} Dokumentasi Tampil
+                            </Badge>
+                            {isAdmin && (
+                                <Button asChild size="sm" variant="secondary" className="h-8 gap-1.5 text-xs">
+                                    <Link href="/master/galeri">
+                                        <Camera className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                                        <span>Kelola Galeri (Admin)</span>
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Filter Kategori Galeri Interaktif */}
+                    <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
+                        {GALERI_KATEGORI_FILTERS.map((kat) => (
+                            <button
+                                key={kat.key}
+                                type="button"
+                                onClick={() => setGaleriKategori(kat.key)}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                                    galeriKategori === kat.key
+                                        ? 'bg-primary text-primary-foreground font-semibold shadow-2xs'
+                                        : 'border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+                                }`}
+                            >
+                                <span>{kat.label}</span>
+                                <span className="text-[10px] opacity-80">
+                                    (
+                                    {kat.key === 'SEMUA'
+                                        ? galeriKegiatan.length
+                                        : galeriKegiatan.filter((g) => g.kategori === kat.key).length}
+                                    )
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Grid Kartu Dokumentasi Visual */}
+                    {filteredGaleri.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-border bg-card/50 p-12 text-center space-y-3">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <Images className="h-6 w-6" aria-hidden="true" />
+                            </div>
+                            <p className="font-serif text-base font-medium text-foreground">
+                                Belum ada dokumentasi untuk kategori ini
+                            </p>
+                            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                                Pilih kategori lain di atas untuk melihat bukti penyaluran lainnya.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                            {filteredGaleri.map((item) => (
+                                <div
+                                    key={item.id}
+                                    onClick={() => openLightbox(item)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            openLightbox(item);
+                                        }
+                                    }}
+                                    className="group relative cursor-pointer overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:border-primary/60 hover:shadow-md flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <div>
+                                        <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                                            <img
+                                                src={item.gambar_url}
+                                                alt={item.judul}
+                                                loading="lazy"
+                                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex items-end justify-between p-3 text-white">
+                                                <span className="text-xs font-medium flex items-center gap-1">
+                                                    <Expand className="h-3.5 w-3.5" aria-hidden="true" />
+                                                    Lihat Foto
+                                                </span>
+                                                <span className="text-[11px] font-mono bg-black/40 px-2 py-0.5 rounded">
+                                                    {formatTanggalIndonesia(item.tanggal_kegiatan)}
+                                                </span>
+                                            </div>
+                                            <div className="absolute top-2.5 left-2.5">
+                                                <Badge variant="secondary" className="shadow-xs backdrop-blur-xs bg-background/90 text-foreground font-medium text-[10px]">
+                                                    {KATEGORI_LABEL_MAP[item.kategori] ?? item.kategori}
+                                                </Badge>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 space-y-2">
+                                            <h3 className="font-serif text-base font-medium text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                                                {item.judul}
+                                            </h3>
+                                            {item.deskripsi && (
+                                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                                    {item.deskripsi}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 pt-0 border-t border-border/50 text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+                                        <span className="flex items-center gap-1 truncate">
+                                            <MapPin className="h-3 w-3 text-primary shrink-0" aria-hidden="true" />
+                                            <span className="truncate">{item.lokasi ?? 'Masjid Istiqamah'}</span>
+                                        </span>
+                                        {Number(item.jumlah_penerima) > 0 && (
+                                            <span className="font-medium text-foreground font-mono shrink-0">
+                                                {item.jumlah_penerima} Jiwa
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </LazySection>
+
                 {/* SECTION 3: Kalkulator Zakat Interaktif */}
                 <LazySection id="kalkulator" className="scroll-mt-32 space-y-8">
                     <div className="space-y-3 max-w-[700px]">
                         <p className="font-mono text-xs uppercase tracking-wider text-primary">
-                            02 · Simulasi Mandiri
+                            03 · Simulasi Mandiri
                         </p>
                         <h2 className="font-serif text-3xl sm:text-[32px] font-medium leading-[1.2] text-foreground">
                             Kalkulator Zakat Fitrah &amp; Zakat Profesi
@@ -691,22 +1086,20 @@ export default function TransparansiPublik({
                                     <button
                                         type="button"
                                         onClick={() => setModeFitrah('uang')}
-                                        className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                                            modeFitrah === 'uang'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'text-muted-foreground hover:text-foreground'
-                                        }`}
+                                        className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${modeFitrah === 'uang'
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                            }`}
                                     >
                                         Tunai / QRIS
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setModeFitrah('beras')}
-                                        className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                                            modeFitrah === 'beras'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'text-muted-foreground hover:text-foreground'
-                                        }`}
+                                        className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${modeFitrah === 'beras'
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                            }`}
                                     >
                                         Beras
                                     </button>
@@ -789,15 +1182,24 @@ export default function TransparansiPublik({
                                 <h3 className="text-lg font-semibold text-foreground">
                                     Zakat Profesi &amp; Penghasilan (2,5%)
                                 </h3>
-                                <p className="text-xs text-muted-foreground">
-                                    Acuan nishab Fatwa MUI No. 3/2003 setara 85 gram emas per tahun (sekitar {formatRupiah(nishabBulananReferensi)} per bulan).
+                                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                    Acuan nisab resmi berdasarkan{' '}
+                                    <strong className="text-foreground font-medium">SK Ketua BAZNAS RI Nomor 15 Tahun 2026</strong>{' '}
+                                    dan Fatwa MUI No. 3/2003: setara 85 gram emas atau sebesar{' '}
+                                    <strong className="text-foreground font-medium">Rp91.681.728 per tahun</strong>{' '}
+                                    (<strong>{formatRupiah(nishabBulananReferensi)} per bulan</strong>).
                                 </p>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="kalk_penghasilan" className="text-sm text-foreground">
-                                    Total Penghasilan Bersih per Bulan (Rp)
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="kalk_penghasilan" className="text-sm text-foreground">
+                                        Total Penghasilan Bersih per Bulan (Rp)
+                                    </Label>
+                                    <span className="text-[11px] text-muted-foreground font-mono">
+                                        Nisab: {formatRupiah(nishabBulananReferensi)}/bln
+                                    </span>
+                                </div>
                                 <Input
                                     id="kalk_penghasilan"
                                     type="number"
@@ -812,13 +1214,12 @@ export default function TransparansiPublik({
 
                             <div className="rounded border border-border bg-background p-4 space-y-2">
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground">Status Nishab Bulanan</span>
+                                    <span className="text-muted-foreground">Status Kewajiban Zakat</span>
                                     <span
-                                        className={`font-mono font-bold ${
-                                            wajibZakatProfesi ? 'text-emerald-800 dark:text-[#4ADE80]' : 'text-amber-950 dark:text-[#FBBF24]'
-                                        }`}
+                                        className={`font-mono font-bold ${wajibZakatProfesi ? 'text-emerald-800 dark:text-[#4ADE80]' : 'text-amber-950 dark:text-[#FBBF24]'
+                                            }`}
                                     >
-                                        {wajibZakatProfesi ? 'Mencapai Nishab (Wajib Zakat)' : 'Belum Mencapai Nishab (Disarankan Infak)'}
+                                        {wajibZakatProfesi ? 'Mencapai Nisab (Wajib Zakat 2,5%)' : 'Belum Mencapai Nisab (Disarankan Infak)'}
                                     </span>
                                 </div>
                                 <p className="font-mono text-2xl font-medium tabular-nums text-primary">
@@ -827,7 +1228,7 @@ export default function TransparansiPublik({
                                 <p className="text-xs text-muted-foreground">
                                     {wajibZakatProfesi
                                         ? 'Dikelola sepanjang tahun sebagai dana Zakat Profesi (ZKT-PRF).'
-                                        : 'Penghasilan di bawah nishab belum terkena kewajiban zakat mal, namun tetap dianjurkan bersedekah.'}
+                                        : `Penghasilan di bawah nisab bulanan (${formatRupiah(nishabBulananReferensi)}) belum terkena kewajiban zakat mal, namun tetap dianjurkan bersedekah/infak sukarela.`}
                                 </p>
                             </div>
                         </div>
@@ -1238,6 +1639,109 @@ export default function TransparansiPublik({
                         </div>
                     </div>
                 </LazySection>
+
+                {/* Lightbox Modal Dialog: Penampil Foto Resolusi Penuh & Detail Interaktif */}
+                <Dialog open={Boolean(activeFotoModal)} onOpenChange={(open) => !open && setActiveFotoModal(null)}>
+                    <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 bg-card border-border">
+                        {activeFotoModal && (
+                            <div className="space-y-4">
+                                <div className="space-y-1.5 border-b border-border pb-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <Badge variant="default" className="text-xs">
+                                            {KATEGORI_LABEL_MAP[activeFotoModal.kategori] ?? activeFotoModal.kategori}
+                                        </Badge>
+                                        <span className="text-xs font-mono text-muted-foreground">
+                                            Foto {activeFotoIndex + 1} dari {filteredGaleri.length}
+                                        </span>
+                                    </div>
+                                    <DialogTitle className="font-serif text-xl sm:text-2xl font-medium text-foreground leading-snug">
+                                        {activeFotoModal.judul}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground">
+                                        Dokumentasi resmi kegiatan penyaluran dan transparansi LAZ Masjid Istiqamah
+                                    </DialogDescription>
+                                </div>
+
+                                {/* Frame Gambar dengan Navigasi Next/Prev */}
+                                <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black/90 flex items-center justify-center border border-border">
+                                    <img
+                                        src={activeFotoModal.gambar_url}
+                                        alt={activeFotoModal.judul}
+                                        className="max-h-full max-w-full object-contain"
+                                    />
+
+                                    {/* Tombol Foto Sebelumnya */}
+                                    {filteredGaleri.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={prevFoto}
+                                            aria-label="Lihat Foto Sebelumnya"
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-primary transition-all shadow-md"
+                                        >
+                                            <ChevronLeft className="h-6 w-6" aria-hidden="true" />
+                                        </button>
+                                    )}
+
+                                    {/* Tombol Foto Berikutnya */}
+                                    {filteredGaleri.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={nextFoto}
+                                            aria-label="Lihat Foto Berikutnya"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-primary transition-all shadow-md"
+                                        >
+                                            <ChevronRight className="h-6 w-6" aria-hidden="true" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Informasi Rincian */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg border border-border bg-background text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <CalendarClock className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="min-w-0">
+                                            <p className="text-muted-foreground text-[10px]">Tanggal Pelaksanaan</p>
+                                            <p className="font-medium text-foreground truncate">
+                                                {formatTanggalIndonesia(activeFotoModal.tanggal_kegiatan)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="min-w-0">
+                                            <p className="text-muted-foreground text-[10px]">Lokasi Kegiatan</p>
+                                            <p className="font-medium text-foreground truncate">
+                                                {activeFotoModal.lokasi ?? 'Masjid Istiqamah, Rumbai'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Users className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                                        <div className="min-w-0">
+                                            <p className="text-muted-foreground text-[10px]">Penerima Manfaat</p>
+                                            <p className="font-medium text-foreground font-mono truncate">
+                                                {Number(activeFotoModal.jumlah_penerima) > 0
+                                                    ? `${activeFotoModal.jumlah_penerima} Jiwa Mustahik`
+                                                    : 'Terdata di BKK'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {activeFotoModal.deskripsi && (
+                                    <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                            Catatan Penyaluran &amp; Manfaat
+                                        </p>
+                                        <p className="text-xs leading-relaxed text-foreground/90 bg-muted/30 p-3 rounded-md border border-border">
+                                            {activeFotoModal.deskripsi}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
             </main>
 
             {/* Footer Informatif & Kontak Person */}
@@ -1247,12 +1751,12 @@ export default function TransparansiPublik({
                         <div className="md:col-span-5 space-y-4">
                             <div className="flex items-center gap-3">
                                 <img
-                                    src="/icons/icon.svg"
-                                    alt="Logo LAZ Masjid Istiqamah Rumbai"
-                                    width={32}
-                                    height={32}
+                                    src="/icons/icon-192x192.png"
+                                    alt="Logo Yayasan Istiqamah Rumbai Pesisir"
+                                    width={36}
+                                    height={36}
                                     loading="lazy"
-                                    className="h-8 w-8 rounded border border-border"
+                                    className="h-9 w-9 object-contain rounded border border-border bg-card p-0.5"
                                 />
                                 <div>
                                     <p className="font-serif text-lg font-medium text-foreground">
@@ -1328,7 +1832,7 @@ export default function TransparansiPublik({
                         </p>
                         <p className="inline-flex items-center gap-1.5 font-mono">
                             <Database className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                            <span>Data terproteksi akun baca-saja (zis_laporan)</span>
+                            <span>Data terproteksi</span>
                         </p>
                     </div>
                 </div>

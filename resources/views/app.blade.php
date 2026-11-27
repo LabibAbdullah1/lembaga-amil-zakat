@@ -11,6 +11,8 @@
         <title inertia>{{ config('app.name', 'SI-LAZ Masjid') }}</title>
 
         <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png">
         <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
         <link rel="preconnect" href="https://fonts.googleapis.com">

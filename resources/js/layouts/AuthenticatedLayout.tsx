@@ -5,12 +5,14 @@ import {
     BookOpen,
     CalendarClock,
     CheckCircle2,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     FileSpreadsheet,
     FolderTree,
     HandCoins,
     History,
+    Images,
     LayoutDashboard,
     LogOut,
     Menu,
@@ -147,6 +149,15 @@ const NAV_ITEMS: NavItemConfig[] = [
         available: true,
     },
     {
+        key: 'master-galeri',
+        label: 'Galeri Dokumentasi',
+        group: 'Master Data',
+        href: '/master/galeri',
+        icon: Images,
+        roles: ['Admin'],
+        available: true,
+    },
+    {
         key: 'laporan',
         label: 'Laporan Analitik',
         group: 'Pengawasan',
@@ -255,7 +266,7 @@ export default function AuthenticatedLayout({
                 <aside
                     aria-label="Navigasi Utama"
                     className={cn(
-                        'hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col border-r bg-card/95 backdrop-blur-xs transition-all duration-200 shrink-0 relative z-40',
+                        'hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col border-r border-border bg-card/95 backdrop-blur-xs transition-all duration-200 shrink-0 relative z-40',
                         sidebarCollapsed ? 'md:w-[76px]' : 'md:w-64'
                     )}
                 >
@@ -264,7 +275,7 @@ export default function AuthenticatedLayout({
                         aria-expanded={!sidebarCollapsed}
                         aria-label={sidebarCollapsed ? 'Perluas sidebar navigasi' : 'Ciutkan sidebar navigasi'}
                         onClick={() => setSidebarCollapsed((prev) => !prev)}
-                        className="absolute -right-3.5 top-5 z-50 inline-flex h-7 w-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="absolute -right-3.5 top-[18px] z-50 inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-xs hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                     >
                         {sidebarCollapsed ? (
                             <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -275,7 +286,7 @@ export default function AuthenticatedLayout({
 
                     <div
                         className={cn(
-                            'flex h-16 items-center border-b',
+                            'flex h-16 items-center border-b border-border',
                             sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-4'
                         )}
                     >
@@ -283,13 +294,13 @@ export default function AuthenticatedLayout({
                             href="/dashboard"
                             className="flex items-center gap-2.5 overflow-hidden focus:outline-none focus:ring-2 focus:ring-ring rounded-lg p-1"
                         >
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-card border border-border shadow-2xs">
                                 <img
-                                    src="/icons/icon.svg"
-                                    alt="Logo LAZ Masjid Istiqamah"
-                                    width={26}
-                                    height={26}
-                                    className="h-6 w-6 rounded-md"
+                                    src="/icons/icon-192x192.png"
+                                    alt="Logo Yayasan Istiqamah Rumbai Pesisir"
+                                    width={28}
+                                    height={28}
+                                    className="h-7 w-7 object-contain"
                                 />
                             </div>
                             {!sidebarCollapsed && (
@@ -375,32 +386,34 @@ export default function AuthenticatedLayout({
 
                 {/* Konten Utama + Header Bar */}
                 <div className="flex flex-1 flex-col min-w-0 pb-20 md:pb-0">
-                    <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur-xs">
-                        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+                    <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-xs">
+                        <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
                             <div className="flex items-center gap-3 min-w-0">
                                 <img
-                                    src="/icons/icon.svg"
-                                    alt="Logo SI-LAZ Masjid"
+                                    src="/icons/icon-192x192.png"
+                                    alt="Logo Yayasan Istiqamah Rumbai Pesisir"
                                     width={32}
                                     height={32}
-                                    className="h-8 w-8 rounded-md md:hidden"
+                                    className="h-8 w-8 object-contain md:hidden shrink-0"
                                 />
-                                <div className="min-w-0">
-                                    <h1 className="font-serif text-lg font-medium tracking-tight truncate sm:text-xl">
+                                <div className="min-w-0 flex flex-col justify-center">
+                                    <h1 className="font-serif text-base sm:text-lg lg:text-xl font-medium tracking-tight truncate leading-tight text-foreground">
                                         {title}
                                     </h1>
                                     {subtitle && (
-                                        <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                                        <p className="text-[11px] sm:text-xs text-muted-foreground truncate leading-snug mt-0.5 max-w-xl">
+                                            {subtitle}
+                                        </p>
                                     )}
                                 </div>
                             </div>
 
                             {/* Indikator Periode Ramadhan Aktif & Realisasi Hak Amil */}
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                                 {periodeAktif ? (
                                     <div
                                         title={`Tarif Fitrah: ${formatRupiah(periodeAktif.nominal_fitrah_per_jiwa)} / ${formatBerasKg(periodeAktif.beras_per_jiwa_kg)}`}
-                                        className="flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs"
+                                        className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 text-xs text-foreground"
                                     >
                                         <CalendarClock className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
                                         <span className="font-medium">
@@ -408,7 +421,9 @@ export default function AuthenticatedLayout({
                                         </span>
                                     </div>
                                 ) : (
-                                    <Badge variant="warning">Belum Ada Periode Ramadhan Aktif</Badge>
+                                    <Badge variant="warning" className="h-9 inline-flex items-center px-2.5 text-xs font-normal">
+                                        Belum Ada Periode Ramadhan Aktif
+                                    </Badge>
                                 )}
 
                                 <DropdownMenu>
@@ -416,10 +431,10 @@ export default function AuthenticatedLayout({
                                         <button
                                             type="button"
                                             title="Klik untuk melihat rincian Hak Amil (Maks 12,50%) per Kategori Zakat"
-                                            className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
+                                            className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs text-foreground hover:bg-muted/70 transition-colors"
                                         >
                                             <Scale className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
-                                            <span className="text-muted-foreground hidden sm:inline">
+                                            <span className="text-muted-foreground hidden lg:inline">
                                                 Hak Amil (Per Kategori):
                                             </span>
                                             <Badge
@@ -514,11 +529,16 @@ export default function AuthenticatedLayout({
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            className="h-9 gap-2 px-2.5 sm:px-3"
                                             aria-label="Menu Akun Pengguna"
                                         >
-                                            <span className="max-w-28 truncate font-medium">
+                                            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                                                {(user?.nama_lengkap ?? 'P').charAt(0).toUpperCase()}
+                                            </div>
+                                            <span className="max-w-28 truncate font-medium text-xs sm:text-sm">
                                                 {user?.nama_lengkap ?? 'Panitia'}
                                             </span>
+                                            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-56">

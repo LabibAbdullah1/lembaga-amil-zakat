@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DasarHukumController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GaleriKegiatanController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\Master\JenisDanaController;
 use App\Http\Controllers\Master\PenggunaSistemController;
@@ -57,6 +58,12 @@ Route::middleware(['auth', 'rdbms.user'])->group(function () {
         Route::post('/pengguna', [PenggunaSistemController::class, 'store'])->name('pengguna.store');
         Route::put('/pengguna/{id}', [PenggunaSistemController::class, 'update'])->name('pengguna.update');
         Route::patch('/pengguna/{id}/toggle', [PenggunaSistemController::class, 'toggleAktif'])->name('pengguna.toggle');
+
+        Route::get('/galeri', [GaleriKegiatanController::class, 'index'])->name('galeri.index');
+        Route::post('/galeri', [GaleriKegiatanController::class, 'store'])->name('galeri.store');
+        Route::post('/galeri/{id}', [GaleriKegiatanController::class, 'update'])->name('galeri.update');
+        Route::patch('/galeri/{id}/toggle', [GaleriKegiatanController::class, 'toggleTampil'])->name('galeri.toggle');
+        Route::delete('/galeri/{id}', [GaleriKegiatanController::class, 'destroy'])->name('galeri.destroy');
     });
 
     // Modul Muzaki & Loket Penghimpunan Cepat (Admin, Amil_Penerima)

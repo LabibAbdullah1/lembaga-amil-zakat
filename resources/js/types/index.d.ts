@@ -266,6 +266,29 @@ export interface HakAmilKategoriItem {
     persentase_non_amil?: number;
 }
 
+export type KategoriGaleri =
+    | 'Zakat_Fitrah'
+    | 'Zakat_Mal'
+    | 'Santunan_Dhuafa'
+    | 'Pemberdayaan'
+    | 'Tanggap_Bencana'
+    | 'Kegiatan_Amil';
+
+export interface GaleriKegiatanItem {
+    id: number;
+    judul: string;
+    kategori: KategoriGaleri;
+    deskripsi: string | null;
+    gambar_url: string;
+    tanggal_kegiatan: string;
+    lokasi: string | null;
+    jumlah_penerima: number;
+    is_tampil: boolean | number;
+    urutan: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface SharedProps {
     auth: {
         user: PenggunaSistem | null;

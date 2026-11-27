@@ -70,9 +70,9 @@ const PASAL_REGULASI = [
         isi: 'Bagian Amil (ASN-03) dari dana zakat dibatasi paling tinggi sebesar 1/8 atau 12,50% dari total dana zakat yang terhimpun pada masing-masing kategori zakat (Zakat Fitrah, Zakat Profesi, Zakat Perniagaan). Sebaliknya, 7 Asnaf lainnya maksimal menggunakan 87,50% (7/8 bagian) agar hak Amil tetap terlindungi dan tidak habis terpakai.',
     },
     {
-        kode: 'Fatwa MUI No. 3 Tahun 2003',
-        judul: 'Zakat Penghasilan (Profesi) & Zakat Perniagaan Sepanjang Tahun',
-        isi: 'Zakat Mal (Zakat Profesi dan Zakat Perniagaan) dikenakan sebesar 2,5% apabila telah mencapai nishab setara 85 gram emas per tahun. Pengelolaan dan saldo Zakat Mal berlaku sepanjang tahun secara berkelanjutan (lintas periode) dan tidak hangus saat pergantian Periode Ramadhan.',
+        kode: 'SK Ketua BAZNAS RI No. 15 Tahun 2026 & Fatwa MUI No. 3/2003',
+        judul: 'Nisab Zakat Penghasilan (Profesi) & Zakat Perniagaan Sepanjang Tahun',
+        isi: 'Zakat Mal (Zakat Profesi dan Zakat Perniagaan) dikenakan tarif 2,5% apabila telah mencapai nisab setara 85 gram emas. Berdasarkan SK Ketua BAZNAS RI Nomor 15 Tahun 2026, nilai nisab zakat penghasilan yang berlaku adalah Rp91.681.728 per tahun atau Rp7.640.144 per bulan. Pengelolaan dan saldo Zakat Mal berlaku sepanjang tahun secara berkelanjutan (lintas periode) dan tidak hangus saat pergantian Periode Ramadhan.',
     },
 ];
 
@@ -273,29 +273,35 @@ export default function DasarHukumPage({ daftarAsnaf = [] }: DasarHukumProps) {
     return (
         <div className="min-h-screen bg-background text-foreground">
             <Head title="Dasar Hukum Syariat & Pasal Zakat — SI-LAZ Masjid" />
-            <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur-xs">
-                <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
-                    <div className="flex items-center gap-2.5">
-                        <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
-                        <div>
-                            <p className="font-serif text-base font-medium">Dasar Hukum Syariat &amp; Pasal Zakat</p>
-                            <p className="text-[11px] text-muted-foreground">
-                                Pedoman Pengelolaan Zakat Masjid (QS. At-Taubah: 60 &amp; UU No. 23/2011)
+            <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-xs">
+                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+                    <Link href="/" className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-card shadow-2xs">
+                            <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="font-serif text-sm sm:text-base font-medium text-foreground truncate">
+                                Dasar Hukum Syariat Zakat
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate hidden sm:block">
+                                QS. At-Taubah: 60 &amp; UU No. 23/2011
                             </p>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
                         <ThemeToggle className="h-9 w-9" />
-                        <Button asChild variant="outline" size="sm">
+                        <Button asChild variant="outline" size="sm" className="h-9 px-2.5 sm:px-3.5">
                             <Link href="/">
-                                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                                <span>Transparansi Publik</span>
+                                <ArrowLeft className="h-4 w-4 sm:mr-1.5" aria-hidden="true" />
+                                <span className="hidden sm:inline">Transparansi Publik</span>
+                                <span className="sm:hidden text-xs">Beranda</span>
                             </Link>
                         </Button>
-                        <Button asChild size="sm">
+                        <Button asChild size="sm" className="h-9 px-2.5 sm:px-3.5">
                             <Link href="/login">
-                                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                                <span>Login Panitia</span>
+                                <CheckCircle2 className="h-4 w-4 sm:mr-1.5" aria-hidden="true" />
+                                <span className="hidden sm:inline">Masuk Panitia</span>
+                                <span className="sm:hidden text-xs">Masuk</span>
                             </Link>
                         </Button>
                     </div>
