@@ -211,8 +211,8 @@ export default function MasterProgram({
                             daftarProgram.every((p) => p.status_program === 'Selesai') && (
                                 <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                                     <div>
-                                        <p className="font-bold">Seluruh Program Penyaluran Telah Selesai</p>
-                                        <p>
+                                        <p className="font-bold text-amber-950 dark:text-amber-100">Seluruh Program Penyaluran Telah Selesai</p>
+                                        <p className="text-amber-900 dark:text-amber-200">
                                             Semua program pada periode saat ini sudah berstatus Selesai. Untuk melakukan penyaluran berikutnya, silakan klik <strong>Tambah Program</strong> atau tombol <strong>Tahun Baru</strong> pada program yang sudah selesai.
                                         </p>
                                     </div>

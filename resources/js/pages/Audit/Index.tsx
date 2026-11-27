@@ -357,8 +357,8 @@ export default function AuditIndex({
                                                                                     <span
                                                                                         className={
                                                                                             changed
-                                                                                                ? 'rounded bg-rose-100 px-1 text-rose-900 line-through truncate max-w-40 dark:bg-rose-950 dark:text-rose-200'
-                                                                                                : 'text-muted-foreground truncate max-w-40'
+                                                                                                ? 'rounded bg-rose-100 px-1 font-medium text-rose-950 line-through truncate max-w-40 dark:bg-rose-950 dark:text-rose-200'
+                                                                                                : 'text-foreground/80 truncate max-w-40'
                                                                                         }
                                                                                     >
                                                                                         {valLama}
@@ -366,7 +366,7 @@ export default function AuditIndex({
                                                                                 )}
                                                                                 {valLama !== null &&
                                                                                     valBaru !== null && (
-                                                                                        <span className="text-muted-foreground">
+                                                                                        <span className="text-foreground/70 font-bold">
                                                                                             -&gt;
                                                                                         </span>
                                                                                     )}
@@ -374,7 +374,7 @@ export default function AuditIndex({
                                                                                     <span
                                                                                         className={
                                                                                             changed
-                                                                                                ? 'rounded bg-emerald-100 px-1 font-semibold text-emerald-900 truncate max-w-40 dark:bg-emerald-950 dark:text-emerald-200'
+                                                                                                ? 'rounded bg-emerald-100 px-1 font-bold text-emerald-950 truncate max-w-40 dark:bg-emerald-950 dark:text-emerald-200'
                                                                                                 : 'text-foreground truncate max-w-40'
                                                                                         }
                                                                                     >

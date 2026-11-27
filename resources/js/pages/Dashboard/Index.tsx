@@ -294,7 +294,7 @@ export default function DashboardIndex({
                                                             p >= 12.5
                                                                 ? 'h-full bg-destructive transition-all'
                                                                 : p >= 10
-                                                                  ? 'h-full bg-amber-500 transition-all'
+                                                                  ? 'h-full bg-amber-600 transition-all'
                                                                   : 'h-full bg-primary transition-all'
                                                         }
                                                         style={{

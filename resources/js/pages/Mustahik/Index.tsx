@@ -548,7 +548,7 @@ export default function MustahikIndex({
                                                                 <TableCell>
                                                                     {!row.penerimaan_periode_ini ||
                                                                     row.penerimaan_periode_ini.length === 0 ? (
-                                                                        <Badge variant="outline" className="text-muted-foreground">
+                                                                        <Badge variant="outline" className="text-foreground font-semibold">
                                                                             Belum Terima (0x)
                                                                         </Badge>
                                                                     ) : (
@@ -660,7 +660,7 @@ export default function MustahikIndex({
                                                             <span>Penerimaan Periode Ini:</span>
                                                             {!row.penerimaan_periode_ini ||
                                                             row.penerimaan_periode_ini.length === 0 ? (
-                                                                <Badge variant="outline" className="text-muted-foreground">
+                                                                <Badge variant="outline" className="text-foreground font-semibold">
                                                                     Belum Terima (0x)
                                                                 </Badge>
                                                             ) : (

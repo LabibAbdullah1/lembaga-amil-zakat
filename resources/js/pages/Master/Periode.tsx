@@ -168,7 +168,7 @@ export default function MasterPeriode({
                             </div>
                             {isFitrahBelumHabis && (
                                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50/70 p-2.5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                                    <span>
+                                    <span className="font-semibold text-amber-950 dark:text-amber-100">
                                         Salurkan seluruh sisa Zakat Fitrah ({formatRupiah(fitrahSaldoUang)} &amp; {formatBerasKg(fitrahSaldoBeras)}) terlebih dahulu melalui menu BKK.
                                     </span>
                                     <Button asChild size="sm" variant="outline" className="h-7 text-xs">

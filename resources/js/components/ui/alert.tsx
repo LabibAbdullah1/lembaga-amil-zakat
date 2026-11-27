@@ -9,11 +9,11 @@ const alertVariants = cva(
             variant: {
                 default: 'bg-card text-card-foreground',
                 destructive:
-                    'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-200 [&>svg]:text-rose-600 dark:[&>svg]:text-rose-400',
+                    'border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-200 [&>svg]:text-rose-700 dark:[&>svg]:text-rose-400',
                 warning:
-                    'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400',
+                    'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-400',
                 success:
-                    'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 [&>svg]:text-emerald-600 dark:[&>svg]:text-emerald-400',
+                    'border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 [&>svg]:text-emerald-700 dark:[&>svg]:text-emerald-400',
             },
         },
         defaultVariants: {

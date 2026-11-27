@@ -191,6 +191,7 @@ export interface ViewSaldoJenisDana {
     nama_dana: string;
     kategori_utama: KategoriUtamaDana;
     induk_dana?: string | null;
+    sifat_dana?: string;
     saldo_tersedia: number | string;
     saldo_beras_kg: number | string;
 }
@@ -207,11 +208,14 @@ export interface ViewLaporanPenyaluranPublik {
     no_bkk: string;
     tanggal_penyaluran: string;
     nama_program: string;
-    nama_dana: string;
-    kode_asnaf: string;
-    nama_asnaf: string;
+    nama_dana?: string;
+    sumber_dana?: string;
+    kode_asnaf?: string;
+    nama_asnaf?: string;
+    golongan_asnaf?: string;
     nik_mustahik_masked: string;
     nama_mustahik_masked: string;
+    alamat_rt_rw?: string | null;
     nominal_diterima: number | string;
     beras_diterima_kg: number | string;
 }

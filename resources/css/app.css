@@ -6,55 +6,57 @@
 @source '../js/**/*.tsx';
 @source '../js/**/*.ts';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where([class~="dark"], [class~="dark"] *));
 
 :root {
-    --background: #f8fafc;
-    --foreground: #0f172a;
-    --card: #ffffff;
-    --card-foreground: #0f172a;
-    --popover: #ffffff;
-    --popover-foreground: #0f172a;
-    --primary: #059669;
-    --primary-foreground: #ffffff;
-    --secondary: #f1f5f9;
-    --secondary-foreground: #0f172a;
-    --muted: #f1f5f9;
-    --muted-foreground: #475569;
-    --accent: #ecfdf5;
-    --accent-foreground: #065f46;
-    --destructive: #e11d48;
-    --destructive-foreground: #ffffff;
-    --border: #e2e8f0;
-    --input: #cbd5e1;
-    --ring: #059669;
+    --background: #FAF8F5;
+    --foreground: #141414;
+    --card: #FFFFFF;
+    --card-foreground: #141414;
+    --popover: #FFFFFF;
+    --popover-foreground: #141414;
+    --primary: #8C5A2B;
+    --primary-foreground: #FFFFFF;
+    --secondary: #EFE9DF;
+    --secondary-foreground: #141414;
+    --muted: #EFE9DF;
+    --muted-foreground: #383838;
+    --accent: #F3EAE0;
+    --accent-foreground: #5E3814;
+    --destructive: #B91C1C;
+    --destructive-foreground: #FFFFFF;
+    --border: #D0C6B8;
+    --input: #B4A795;
+    --ring: #8C5A2B;
     --radius: 0.5rem;
 }
 
 .dark {
-    --background: #090d16;
-    --foreground: #f8fafc;
-    --card: #111827;
-    --card-foreground: #f8fafc;
-    --popover: #111827;
-    --popover-foreground: #f8fafc;
-    --primary: #10b981;
-    --primary-foreground: #052e16;
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --accent: #064e3b;
-    --accent-foreground: #d1fae5;
-    --destructive: #f43f5e;
-    --destructive-foreground: #ffffff;
-    --border: #1e293b;
-    --input: #334155;
-    --ring: #10b981;
+    --background: #141414;
+    --foreground: #EDEDED;
+    --card: #222222;
+    --card-foreground: #EDEDED;
+    --popover: #222222;
+    --popover-foreground: #EDEDED;
+    --primary: #D4A574;
+    --primary-foreground: #141414;
+    --secondary: #1E1E1E;
+    --secondary-foreground: #EDEDED;
+    --muted: #1E1E1E;
+    --muted-foreground: #A0A0A0;
+    --accent: #33271C;
+    --accent-foreground: #D4A574;
+    --destructive: #EF4444;
+    --destructive-foreground: #141414;
+    --border: #333333;
+    --input: #3A3A3A;
+    --ring: #D4A574;
 }
 
 @theme inline {
-    --font-sans: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Inter', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'Newsreader', 'Tiempos Headline', Georgia, Cambria, serif;
+    --font-mono: 'JetBrains Mono', 'Berkeley Mono', ui-monospace, SFMono-Regular, monospace;
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --color-card: var(--card);
@@ -81,12 +83,28 @@
 }
 
 @layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
     * {
         @apply border-border;
     }
 
     body {
-        @apply bg-background text-foreground antialiased overflow-x-hidden;
+        @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+    }
+
+    h1,
+    h2 {
+        font-family: var(--font-serif);
+        font-weight: 500;
+    }
+
+    code,
+    pre,
+    kbd {
+        font-family: var(--font-mono);
     }
 
     a[href],

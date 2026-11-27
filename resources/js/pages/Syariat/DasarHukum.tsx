@@ -13,6 +13,7 @@ import {
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatBerasKg, formatPercentage, formatRupiah } from '@/lib/format';
@@ -277,13 +278,14 @@ export default function DasarHukumPage({ daftarAsnaf = [] }: DasarHukumProps) {
                     <div className="flex items-center gap-2.5">
                         <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
                         <div>
-                            <p className="text-sm font-bold">Dasar Hukum Syariat &amp; Pasal Zakat</p>
+                            <p className="font-serif text-base font-medium">Dasar Hukum Syariat &amp; Pasal Zakat</p>
                             <p className="text-[11px] text-muted-foreground">
                                 Pedoman Pengelolaan Zakat Masjid (QS. At-Taubah: 60 &amp; UU No. 23/2011)
                             </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <ThemeToggle className="h-9 w-9" />
                         <Button asChild variant="outline" size="sm">
                             <Link href="/">
                                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />

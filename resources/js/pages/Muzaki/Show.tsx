@@ -200,10 +200,10 @@ export default function MuzakiShow({
                                                 aria-hidden="true"
                                             />
                                             <div className="space-y-1">
-                                                <p className="font-semibold text-amber-900 dark:text-amber-200">
+                                                <p className="font-bold text-amber-950 dark:text-amber-100">
                                                     Penambahan Tanggungan Dinonaktifkan untuk Jenis Individu
                                                 </p>
-                                                <p className="text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                                                <p className="text-amber-900 dark:text-amber-200 leading-relaxed">
                                                     Jika <strong>{muzaki.nama_lengkap}</strong> ingin menambahkan istri, anak, atau tanggungan lain ke dalam perhitungan zakat fitrah, ubah jenis Muzaki menjadi <strong>KK Keluarga</strong> terlebih dahulu.
                                                 </p>
                                             </div>

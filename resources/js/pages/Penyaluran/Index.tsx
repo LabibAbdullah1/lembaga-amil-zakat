@@ -141,8 +141,8 @@ export default function PenyaluranIndex({
                         {jumlahProgramAktif === 0 && (
                             <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                                 <div>
-                                    <p className="font-bold">Seluruh Program Penyaluran Sudah Selesai</p>
-                                    <p>
+                                    <p className="font-bold text-amber-950 dark:text-amber-100">Seluruh Program Penyaluran Sudah Selesai</p>
+                                    <p className="text-amber-900 dark:text-amber-200">
                                         Tidak ada program penyaluran berstatus Draft atau Berjalan saat ini. Petugas harus membuat program penyaluran baru terlebih dahulu sebelum mengajukan BKK baru.
                                     </p>
                                 </div>

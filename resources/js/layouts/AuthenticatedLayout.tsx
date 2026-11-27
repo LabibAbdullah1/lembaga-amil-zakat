@@ -26,6 +26,7 @@ import { RdbmsAlert } from '@/components/zis/RdbmsAlert';
 import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -312,7 +313,7 @@ export default function AuthenticatedLayout({
                             return (
                                 <div key={groupName} className="space-y-1">
                                     {!sidebarCollapsed ? (
-                                        <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                                        <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-foreground/70">
                                             {groupName}
                                         </p>
                                     ) : (
@@ -332,7 +333,7 @@ export default function AuthenticatedLayout({
                                                     'group relative flex h-10 items-center gap-3 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-ring',
                                                     active
                                                         ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                                                        : 'font-medium text-muted-foreground hover:bg-accent/70 hover:text-accent-foreground',
+                                                        : 'font-medium text-foreground/80 hover:bg-accent/70 hover:text-accent-foreground',
                                                     sidebarCollapsed ? 'mx-auto w-10 justify-center px-0' : 'px-3'
                                                 )}
                                             >
@@ -385,7 +386,7 @@ export default function AuthenticatedLayout({
                                     className="h-8 w-8 rounded-md md:hidden"
                                 />
                                 <div className="min-w-0">
-                                    <h1 className="text-base font-bold tracking-tight truncate sm:text-lg">
+                                    <h1 className="font-serif text-lg font-medium tracking-tight truncate sm:text-xl">
                                         {title}
                                     </h1>
                                     {subtitle && (
@@ -498,6 +499,8 @@ export default function AuthenticatedLayout({
                                         <span className="hidden sm:inline">Install PWA</span>
                                     </Button>
                                 )}
+
+                                <ThemeToggle className="h-9 w-9" />
 
                                 <UserGuideDialog
                                     currentRole={user?.peran ?? 'Admin'}

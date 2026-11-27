@@ -15,13 +15,13 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 createInertiaApp({
     title: (title) => (title ? `${title} | ${appName}` : appName),
-    resolve: (name) => {
-        const pages = import.meta.glob('./pages/**/*.tsx', { eager: true });
-        const page = pages[`./pages/${name}.tsx`];
-        if (!page) {
+    resolve: async (name) => {
+        const pages = import.meta.glob('./pages/**/*.tsx');
+        const loader = pages[`./pages/${name}.tsx`];
+        if (!loader) {
             throw new Error(`Halaman Inertia ./pages/${name}.tsx tidak ditemukan.`);
         }
-        return page;
+        return await loader();
     },
     setup({ el, App, props }) {
         createRoot(el).render(
@@ -32,6 +32,6 @@ createInertiaApp({
         );
     },
     progress: {
-        color: '#059669',
+        color: '#D4A574',
     },
 });

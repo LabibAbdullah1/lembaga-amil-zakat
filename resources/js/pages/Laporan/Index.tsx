@@ -450,17 +450,27 @@ export default function LaporanIndex({
                                             <div className="h-72 w-full">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart data={yoyChartData} margin={{ top: 8, right: 12, left: 8, bottom: 4 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" />
-                                                        <XAxis dataKey="periode" tick={{ fontSize: 11 }} />
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                                                        <XAxis dataKey="periode" tick={{ fontSize: 11, fill: 'var(--foreground)' }} stroke="var(--border)" />
                                                         <YAxis
                                                             width={76}
-                                                            tick={{ fontSize: 11 }}
+                                                            tick={{ fontSize: 11, fill: 'var(--foreground)' }}
+                                                            stroke="var(--border)"
                                                             tickFormatter={(val: number) => formatShortRupiah(Number(val) || 0)}
                                                         />
                                                         <Tooltip
+                                                            contentStyle={{
+                                                                backgroundColor: 'var(--card)',
+                                                                borderColor: 'var(--border)',
+                                                                color: 'var(--card-foreground)',
+                                                                borderRadius: '8px',
+                                                                fontSize: '12px',
+                                                            }}
+                                                            itemStyle={{ color: 'var(--card-foreground)' }}
+                                                            labelStyle={{ color: 'var(--card-foreground)', fontWeight: 600 }}
                                                             formatter={(val: unknown) => formatRupiah(Number(val) || 0)}
                                                         />
-                                                        <Legend />
+                                                        <Legend wrapperStyle={{ color: 'var(--foreground)', fontSize: '11px' }} />
                                                         <Bar
                                                             dataKey="tahunBerjalan"
                                                             name="Nominal Bulan Ini"
@@ -470,7 +480,7 @@ export default function LaporanIndex({
                                                         <Bar
                                                             dataKey="tahunLalu"
                                                             name="Bulan Sama Tahun Lalu (LAG)"
-                                                            fill="#94a3b8"
+                                                            fill="#64748b"
                                                             radius={[4, 4, 0, 0]}
                                                         />
                                                     </BarChart>
@@ -582,12 +592,21 @@ export default function LaporanIndex({
                                                                 ))}
                                                             </Pie>
                                                             <Tooltip
+                                                                contentStyle={{
+                                                                    backgroundColor: 'var(--card)',
+                                                                    borderColor: 'var(--border)',
+                                                                    color: 'var(--card-foreground)',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '12px',
+                                                                }}
+                                                                itemStyle={{ color: 'var(--card-foreground)' }}
+                                                                labelStyle={{ color: 'var(--card-foreground)', fontWeight: 600 }}
                                                                 formatter={(val: unknown) =>
                                                                     formatRupiah(Number(val) || 0)
                                                                 }
                                                             />
                                                             <Legend
-                                                                wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }}
+                                                                wrapperStyle={{ fontSize: '11px', paddingTop: '6px', color: 'var(--foreground)' }}
                                                             />
                                                         </PieChart>
                                                     </ResponsiveContainer>
@@ -604,17 +623,27 @@ export default function LaporanIndex({
                                                             data={asnafChartData}
                                                             margin={{ top: 8, right: 8, left: 0, bottom: 20 }}
                                                         >
-                                                            <CartesianGrid strokeDasharray="3 3" />
+                                                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                                                             <XAxis
                                                                 dataKey="kodeNama"
                                                                 interval={0}
                                                                 angle={-25}
                                                                 textAnchor="end"
                                                                 height={62}
-                                                                tick={{ fontSize: 10 }}
+                                                                tick={{ fontSize: 10, fill: 'var(--foreground)' }}
+                                                                stroke="var(--border)"
                                                             />
-                                                            <YAxis unit="%" width={44} tick={{ fontSize: 11 }} />
+                                                            <YAxis unit="%" width={44} tick={{ fontSize: 11, fill: 'var(--foreground)' }} stroke="var(--border)" />
                                                             <Tooltip
+                                                                contentStyle={{
+                                                                    backgroundColor: 'var(--card)',
+                                                                    borderColor: 'var(--border)',
+                                                                    color: 'var(--card-foreground)',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '12px',
+                                                                }}
+                                                                itemStyle={{ color: 'var(--card-foreground)' }}
+                                                                labelStyle={{ color: 'var(--card-foreground)', fontWeight: 600 }}
                                                                 labelFormatter={(label: unknown) => String(label)}
                                                                 formatter={(val: unknown) =>
                                                                     `${Number(val) || 0}%`

@@ -7,6 +7,7 @@ import { UserGuideDialog } from '@/components/zis/UserGuideDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -113,6 +114,7 @@ export default function Login() {
                     </Link>
 
                     <div className="flex items-center gap-2">
+                        <ThemeToggle className="h-9 w-9" />
                         <UserGuideDialog
                             currentRole="Amil_Penerima"
                             triggerVariant="outline"
@@ -139,7 +141,7 @@ export default function Login() {
                     <section className="lg:col-span-6 space-y-6">
                         <div className="space-y-3">
                             <Badge variant="success">Portal Operasional Resmi</Badge>
-                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+                            <h1 className="font-serif text-3xl font-medium leading-[1.15] tracking-[-0.015em] sm:text-4xl">
                                 Pengelolaan Zakat Fitrah, Zakat Mal, Infak, dan Wakaf Masjid
                             </h1>
                             <p className="text-sm text-muted-foreground leading-relaxed sm:text-base">

@@ -832,7 +832,7 @@ export default function PenyaluranShow({
                                                                             {item.kode_asnaf} - {item.nama_asnaf}
                                                                         </Badge>
                                                                         {layak ? (
-                                                                            <span className="inline-flex items-center text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                                                                            <span className="inline-flex items-center text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
                                                                                 <CheckCircle2
                                                                                     className="mr-1 h-3 w-3"
                                                                                     aria-hidden="true"
@@ -840,7 +840,7 @@ export default function PenyaluranShow({
                                                                                 Layak
                                                                             </span>
                                                                         ) : (
-                                                                            <span className="inline-flex items-center text-[11px] font-medium text-rose-700 dark:text-rose-400">
+                                                                            <span className="inline-flex items-center text-[11px] font-semibold text-rose-800 dark:text-rose-300">
                                                                                 <XCircle
                                                                                     className="mr-1 h-3 w-3"
                                                                                     aria-hidden="true"

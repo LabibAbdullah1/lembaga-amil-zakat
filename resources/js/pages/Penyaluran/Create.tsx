@@ -472,10 +472,10 @@ export default function PenyaluranCreate({
                 {daftarProgram.length === 0 && (
                     <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                         <div className="space-y-1">
-                            <p className="text-sm font-bold">
+                            <p className="text-sm font-bold text-amber-950 dark:text-amber-100">
                                 Seluruh Program Penyaluran Telah Selesai
                             </p>
-                            <p>
+                            <p className="text-amber-900 dark:text-amber-200">
                                 Tidak ada program penyaluran aktif (Draft / Berjalan) pada periode saat ini. Petugas wajib membuat program penyaluran baru terlebih dahulu (atau meminta Admin membuka program periode/tahun berikutnya) sebelum mengajukan BKK.
                             </p>
                         </div>

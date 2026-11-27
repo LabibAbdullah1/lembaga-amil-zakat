@@ -80,7 +80,7 @@ export function MustahikSearchPicker({
     return (
         <div className="space-y-2">
             {onlyAsnafKode && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                     Program Khusus Amil: Daftar penerima dikunci hanya untuk Amil Zakat ({onlyAsnafKode}) yang terdaftar.
                 </div>
             )}
@@ -223,7 +223,7 @@ export function MustahikSearchPicker({
                                                 {m.penerimaan_periode_ini.map((p) => (
                                                     <span
                                                         key={p.jenis_dana_id}
-                                                        className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 font-mono text-[9px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                                        className="rounded border border-amber-300 bg-amber-50 px-1 py-0.5 font-mono text-[9px] font-bold text-amber-950 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
                                                         title={p.nama_dana}
                                                     >
                                                         {p.kode_dana}: {p.jumlah_diterima_kali}x
@@ -231,7 +231,7 @@ export function MustahikSearchPicker({
                                                 ))}
                                             </div>
                                         ) : (
-                                            <span className="text-[10px] text-muted-foreground">
+                                            <span className="text-[10px] font-semibold text-foreground">
                                                 Belum Terima (0x)
                                             </span>
                                         )}
