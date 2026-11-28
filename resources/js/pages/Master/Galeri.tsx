@@ -532,12 +532,12 @@ export default function MasterGaleri({ galeri, filters }: MasterGaleriProps) {
                                 ref={fileInputRef}
                                 id="gambar"
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                                accept="image/jpeg,image/png,image/webp"
                                 onChange={handleFileChange}
                                 className="block w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                             />
                             <p className="text-[11px] text-muted-foreground">
-                                Format: JPG, PNG, WEBP, atau SVG. Ukuran maksimal 5MB.
+                                Format: JPG, PNG, atau WEBP. Ukuran maksimal 5MB.
                             </p>
                             {form.errors.gambar && (
                                 <p className="text-[11px] text-destructive">{form.errors.gambar}</p>

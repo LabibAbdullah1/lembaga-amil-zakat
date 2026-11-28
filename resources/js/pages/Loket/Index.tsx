@@ -1,12 +1,14 @@
 import * as React from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
     Ban,
     Calculator,
+    CheckCircle2,
     ChevronLeft,
     ChevronRight,
     FileDown,
     HandCoins,
+    MessageSquare,
     Search,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout';
@@ -42,7 +44,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatBerasKg, formatRupiah, formatTanggalIndonesia } from '@/lib/format';
-import type { JenisDana, MetodeBayar, Muzaki, PeriodeRamadhan } from '@/types';
+import type { JenisDana, MetodeBayar, Muzaki, PeriodeRamadhan, SharedProps } from '@/types';
 
 interface MuzakiWithJiwa extends Muzaki {
     jumlah_jiwa: number;
@@ -58,6 +60,8 @@ interface KwitansiRow {
     muzaki_id: number;
     nik_muzaki: string;
     nama_muzaki: string;
+    hp_muzaki?: string | null;
+    wa_url?: string | null;
     periode_id: number;
     tahun_hijriah: string;
     tahun_masehi: number;
@@ -109,6 +113,7 @@ export default function LoketIndex({
     saranNoKwitansi,
     rdbmsError,
 }: LoketIndexProps) {
+    const { flash } = usePage<SharedProps>().props;
     const [isOnline, setIsOnline] = React.useState<boolean>(() =>
         typeof navigator !== 'undefined' ? navigator.onLine : true
     );
@@ -151,6 +156,7 @@ export default function LoketIndex({
         jumlah_jiwa: string;
         nominal: string;
         berat_beras_kg: string;
+        kirim_wa: boolean;
     }>({
         no_kwitansi: saranNoKwitansi,
         muzaki_id: defaultMuzaki ? Number(defaultMuzaki.id) : 0,
@@ -160,6 +166,7 @@ export default function LoketIndex({
         jumlah_jiwa: String(defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1),
         nominal: String((defaultMuzaki ? Math.max(1, Number(defaultMuzaki.jumlah_jiwa)) : 1) * tarifFitrah),
         berat_beras_kg: '',
+        kirim_wa: true,
     });
 
     // Pastikan jika pengguna berpindah dari halaman Detail Muzaki (/loket?muzaki_id=...),
@@ -189,6 +196,11 @@ export default function LoketIndex({
     const voidForm = useForm<{ alasan_batal: string }>({
         alasan_batal: '',
     });
+
+    const selectedMuzaki = React.useMemo(
+        () => daftarMuzaki.find((m) => Number(m.id) === Number(data.muzaki_id)) ?? null,
+        [daftarMuzaki, data.muzaki_id]
+    );
 
     const selectedDana = React.useMemo(
         () => daftarDanaOperasional.find((d) => d.id === data.jenis_dana_id) ?? null,
@@ -334,6 +346,52 @@ export default function LoketIndex({
 
             <div className="space-y-6">
                 <RdbmsAlert message={rdbmsError} />
+
+                {/* Banner Notifikasi & Tautan Cepat WhatsApp */}
+                {flash?.notif_wa && (
+                    <div className="rounded-xl border border-emerald-600/30 bg-emerald-50/80 dark:bg-emerald-950/40 p-4 space-y-3 shadow-2xs">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-2xs">
+                                    <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-foreground">
+                                        Kwitansi {flash.notif_wa.no_kwitansi} Berhasil Dicatat!
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Muzaki: <strong className="text-foreground">{flash.notif_wa.nama_muzaki}</strong>{' '}
+                                        {flash.notif_wa.hp_muzaki ? `(${flash.notif_wa.hp_muzaki})` : '(Tanpa Nomor HP)'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {flash.notif_wa.wa_url && (
+                                    <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9">
+                                        <a href={flash.notif_wa.wa_url} target="_blank" rel="noopener noreferrer">
+                                            <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                                            <span>Buka WhatsApp</span>
+                                        </a>
+                                    </Button>
+                                )}
+                                {flash.notif_wa.id && (
+                                    <Button asChild variant="outline" size="sm" className="h-9 gap-1.5">
+                                        <a href={`/loket/${flash.notif_wa.id}/pdf`} target="_blank" rel="noopener noreferrer">
+                                            <FileDown className="h-4 w-4" aria-hidden="true" />
+                                            <span>Cetak PDF</span>
+                                        </a>
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                        {flash.notif_wa.wa_status?.message && (
+                            <p className="text-[11px] text-muted-foreground border-t border-emerald-200/50 dark:border-emerald-900/50 pt-2">
+                                Status Gateway Otomatis:{' '}
+                                <span className="font-medium text-foreground">{flash.notif_wa.wa_status.message}</span>
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <div className="grid gap-6 lg:grid-cols-12">
                     {/* Form Entri Cepat Loket POS Masjid */}
@@ -548,6 +606,26 @@ export default function LoketIndex({
                                             </div>
                                         </div>
 
+                                        <div className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-1.5">
+                                            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={data.kirim_wa}
+                                                    onChange={(e) => setData('kirim_wa', e.target.checked)}
+                                                    className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
+                                                />
+                                                <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                                                    <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                                    Kirim Tanda Terima via WhatsApp ke Muzaki
+                                                </span>
+                                            </label>
+                                            <p className="text-[11px] text-muted-foreground pl-6">
+                                                {selectedMuzaki?.no_hp
+                                                    ? `Nomor HP Muzaki: ${selectedMuzaki.no_hp} (Format doa syar'i & link unduh PDF resmi).`
+                                                    : 'Muzaki belum memiliki nomor HP. Masukkan nomor HP di data Muzaki untuk pengiriman via WA.'}
+                                            </p>
+                                        </div>
+
                                         <Button
                                             type="submit"
                                             className="w-full"
@@ -745,6 +823,24 @@ export default function LoketIndex({
                                                                             <span>PDF</span>
                                                                         </a>
                                                                     </Button>
+                                                                    {row.wa_url && (
+                                                                        <Button
+                                                                            asChild
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 border-emerald-600/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                                                        >
+                                                                            <a
+                                                                                href={row.wa_url}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                title={`Kirim WA ke ${row.nama_muzaki} (${row.hp_muzaki ?? ''})`}
+                                                                            >
+                                                                                <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                                                                <span className="hidden xl:inline">WA</span>
+                                                                            </a>
+                                                                        </Button>
+                                                                    )}
                                                                     {row.status_transaksi === 'Sah' && (
                                                                         <Button
                                                                             type="button"
@@ -808,7 +904,7 @@ export default function LoketIndex({
                                                         </p>
                                                     )}
 
-                                                    <div className="flex items-center gap-2 pt-1">
+                                                    <div className="flex flex-wrap items-center gap-2 pt-1">
                                                         <Button asChild variant="outline" size="sm" className="flex-1">
                                                             <a
                                                                 href={`/loket/${row.id}/pdf`}
@@ -819,6 +915,23 @@ export default function LoketIndex({
                                                                 <span>Unduh PDF</span>
                                                             </a>
                                                         </Button>
+                                                        {row.wa_url && (
+                                                            <Button
+                                                                asChild
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="flex-1 text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 border-emerald-600/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                                            >
+                                                                <a
+                                                                    href={row.wa_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                >
+                                                                    <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                                                    <span>WhatsApp</span>
+                                                                </a>
+                                                            </Button>
+                                                        )}
                                                         {row.status_transaksi === 'Sah' && (
                                                             <Button
                                                                 type="button"

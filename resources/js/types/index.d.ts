@@ -299,6 +299,18 @@ export interface SharedProps {
     flash?: {
         success?: string | null;
         error?: string | null;
+        notif_wa?: {
+            id?: number;
+            no_kwitansi: string;
+            nama_muzaki: string;
+            hp_muzaki?: string | null;
+            wa_url?: string | null;
+            wa_status?: {
+                success: boolean;
+                mode: string;
+                message: string;
+            } | null;
+        } | null;
     };
     errors: Record<string, string> & {
         rdbms?: string;

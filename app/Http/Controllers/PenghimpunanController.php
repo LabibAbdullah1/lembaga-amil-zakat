@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WhatsAppNotificationService;
 use App\Support\RdbmsErrorHandler;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -109,7 +110,7 @@ class PenghimpunanController extends Controller
             $totalKwitansi = (int) ($countRow->total ?? 0);
 
             $riwayatKwitansi = DB::connection('mysql')->select(
-                'SELECT tp.id, tp.no_kwitansi, tp.muzaki_id, m.nik AS nik_muzaki, m.nama_lengkap AS nama_muzaki,
+                'SELECT tp.id, tp.no_kwitansi, tp.muzaki_id, m.nik AS nik_muzaki, m.nama_lengkap AS nama_muzaki, m.no_hp AS hp_muzaki,
                         tp.periode_id, pr.tahun_hijriah, pr.tahun_masehi,
                         tp.amil_id, ps.nama_lengkap AS nama_amil,
                         tp.tanggal_transaksi, tp.metode_bayar, tp.total_nominal, tp.total_beras_kg,
@@ -126,6 +127,15 @@ class PenghimpunanController extends Controller
                   LIMIT ? OFFSET ?',
                 [...$bindings, $perPage, $offset]
             );
+
+            foreach ($riwayatKwitansi as $row) {
+                $row->wa_url = null;
+                if (! empty($row->hp_muzaki) && $row->status_transaksi === 'Sah') {
+                    $pdfDownloadUrl = url('/kwitansi/unduh/' . rawurlencode($row->no_kwitansi));
+                    $pesanWa = WhatsAppNotificationService::buildReceiptMessage($row, $pdfDownloadUrl);
+                    $row->wa_url = WhatsAppNotificationService::buildWhatsAppUrl((string) $row->hp_muzaki, $pesanWa);
+                }
+            }
         } catch (Throwable) {
             $riwayatKwitansi = [];
         }
@@ -169,15 +179,16 @@ class PenghimpunanController extends Controller
             'jumlah_jiwa' => ['required', 'integer', 'min:1'],
             'nominal' => ['required', 'numeric', 'min:0'],
             'berat_beras_kg' => ['required', 'numeric', 'min:0'],
+            'kirim_wa' => ['nullable', 'boolean'],
         ]);
 
         $noKwitansi = $this->generateNoKwitansi();
-
+        $kirimWa = $request->boolean('kirim_wa', true);
         $amilId = (int) $request->user()->id;
 
         // DILARANG menghitung atau menambah saldo jenis_dana di PHP!
         // Seluruh pencatatan header, detail, dan sinkronisasi saldo dilakukan atomik oleh sp_terima_zis_fitrah & trigger RDBMS.
-        return RdbmsErrorHandler::run(function () use ($validated, $noKwitansi, $amilId) {
+        return RdbmsErrorHandler::run(function () use ($validated, $noKwitansi, $amilId, $kirimWa) {
             DB::connection('mysql')->statement(
                 'CALL sp_terima_zis_fitrah(?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
@@ -193,8 +204,49 @@ class PenghimpunanController extends Controller
                 ]
             );
 
+            // Ambil data transaksi yang baru saja dicatat untuk penyusunan pesan WhatsApp
+            $trxBaru = DB::connection('mysql')->selectOne(
+                'SELECT tp.id, tp.no_kwitansi, tp.tanggal_transaksi, tp.metode_bayar,
+                        tp.total_nominal, tp.total_beras_kg,
+                        m.nama_lengkap AS nama_muzaki, m.no_hp AS hp_muzaki,
+                        pr.tahun_hijriah, pr.tahun_masehi,
+                        ps.nama_lengkap AS nama_amil,
+                        jd.nama_dana, dp.jumlah_jiwa
+                 FROM transaksi_penghimpunan tp
+                 INNER JOIN muzaki m ON m.id = tp.muzaki_id
+                 INNER JOIN periode_ramadhan pr ON pr.id = tp.periode_id
+                 INNER JOIN pengguna_sistem ps ON ps.id = tp.amil_id
+                 LEFT JOIN detail_penghimpunan dp ON dp.transaksi_id = tp.id
+                 LEFT JOIN jenis_dana jd ON jd.id = dp.jenis_dana_id
+                 WHERE tp.no_kwitansi = ?
+                 LIMIT 1',
+                [$noKwitansi]
+            );
+
+            $waUrl = null;
+            $waStatus = null;
+            $waMessage = null;
+
+            if ($trxBaru && ! empty($trxBaru->hp_muzaki)) {
+                $pdfDownloadUrl = url('/kwitansi/unduh/' . rawurlencode($trxBaru->no_kwitansi));
+                $waMessage = WhatsAppNotificationService::buildReceiptMessage($trxBaru, $pdfDownloadUrl);
+                $waUrl = WhatsAppNotificationService::buildWhatsAppUrl((string) $trxBaru->hp_muzaki, $waMessage);
+
+                if ($kirimWa) {
+                    $waStatus = WhatsAppNotificationService::sendViaGateway((string) $trxBaru->hp_muzaki, $waMessage);
+                }
+            }
+
             return redirect()->route('loket.index')
-                ->with('success', sprintf('Setoran ZIS/Fitrah berhasil dicatat dengan Nomor Kwitansi %s.', $noKwitansi));
+                ->with('success', sprintf('Setoran ZIS/Fitrah berhasil dicatat dengan Nomor Kwitansi %s.', $noKwitansi))
+                ->with('notif_wa', [
+                    'id' => $trxBaru?->id,
+                    'no_kwitansi' => $noKwitansi,
+                    'nama_muzaki' => $trxBaru?->nama_muzaki ?? 'Muzaki',
+                    'hp_muzaki' => $trxBaru?->hp_muzaki,
+                    'wa_url' => $waUrl,
+                    'wa_status' => $waStatus,
+                ]);
         });
     }
 
@@ -258,6 +310,51 @@ class PenghimpunanController extends Controller
         $safeFilename = 'Kwitansi-' . preg_replace('/[^A-Za-z0-9\-]/', '_', (string) $transaksi->no_kwitansi) . '.pdf';
 
         return $pdf->download($safeFilename);
+    }
+
+    /**
+     * Akses publik streaming/unduh kwitansi PDF digital untuk Muzaki via tautan WhatsApp (tanpa login).
+     */
+    public function publicPdf(string $noKwitansi): HttpResponse
+    {
+        $cleanNo = trim($noKwitansi);
+        $transaksi = DB::connection('mysql')->selectOne(
+            'SELECT tp.id, tp.no_kwitansi, tp.tanggal_transaksi, tp.metode_bayar,
+                    tp.total_nominal, tp.total_beras_kg, tp.status_transaksi, tp.alasan_batal,
+                    m.nik AS nik_muzaki, m.nama_lengkap AS nama_muzaki, m.no_hp AS hp_muzaki, m.alamat_rt_rw,
+                    pr.tahun_hijriah, pr.tahun_masehi,
+                    ps.nama_lengkap AS nama_amil, ps.username AS username_amil
+             FROM transaksi_penghimpunan tp
+             INNER JOIN muzaki m ON m.id = tp.muzaki_id
+             INNER JOIN periode_ramadhan pr ON pr.id = tp.periode_id
+             INNER JOIN pengguna_sistem ps ON ps.id = tp.amil_id
+             WHERE tp.no_kwitansi = ?
+             LIMIT 1',
+            [$cleanNo]
+        );
+
+        if (! $transaksi) {
+            abort(404, 'Kwitansi zakat resmi tidak ditemukan atau nomor kwitansi tidak valid.');
+        }
+
+        $detailItems = DB::connection('mysql')->select(
+            'SELECT dp.id, dp.jumlah_jiwa, dp.nominal, dp.berat_beras_kg,
+                    jd.kode_dana, jd.nama_dana, jd.kategori_utama
+             FROM detail_penghimpunan dp
+             INNER JOIN jenis_dana jd ON jd.id = dp.jenis_dana_id
+             WHERE dp.transaksi_id = ?
+             ORDER BY dp.id ASC',
+            [$transaksi->id]
+        );
+
+        $pdf = Pdf::loadView('pdf.kwitansi', [
+            'transaksi' => $transaksi,
+            'detailItems' => $detailItems,
+        ])->setPaper('a5', 'landscape');
+
+        $safeFilename = 'Kwitansi-Resmi-' . preg_replace('/[^A-Za-z0-9\-]/', '_', (string) $transaksi->no_kwitansi) . '.pdf';
+
+        return $pdf->stream($safeFilename);
     }
 
     private function generateNoKwitansi(): string

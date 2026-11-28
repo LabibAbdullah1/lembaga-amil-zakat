@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'provider' => env('WA_GATEWAY_PROVIDER', 'log'), // 'fonnte', 'wablas', 'generic', 'log'
+        'api_url' => env('WA_GATEWAY_URL', 'https://api.fonnte.com/send'),
+        'api_key' => env('WA_GATEWAY_KEY', ''),
+        'sender' => env('WA_SENDER_NUMBER', ''),
+        'enabled' => env('WA_NOTIF_ENABLED', true),
+    ],
+
 ];

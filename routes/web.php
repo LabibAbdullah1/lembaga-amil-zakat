@@ -17,10 +17,11 @@ use App\Http\Controllers\PenyaluranController;
 use App\Http\Controllers\TransparansiPublikController;
 use Illuminate\Support\Facades\Route;
 
-// Portal Transparansi Publik & Dasar Hukum Syariat (Tanpa Login)
+// Portal Transparansi Publik, Dasar Hukum Syariat, & Kwitansi Digital (Tanpa Login)
 Route::get('/', [TransparansiPublikController::class, 'index'])->name('home');
 Route::get('/transparansi', [TransparansiPublikController::class, 'index'])->name('transparansi.index');
 Route::get('/dasar-hukum', [DasarHukumController::class, 'index'])->name('dasar-hukum.index');
+Route::get('/kwitansi/unduh/{noKwitansi}', [PenghimpunanController::class, 'publicPdf'])->name('kwitansi.public');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])

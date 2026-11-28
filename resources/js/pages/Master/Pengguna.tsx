@@ -467,7 +467,7 @@ export default function MasterPengguna({
                                 id="password_user"
                                 type="password"
                                 required={!editingUser}
-                                placeholder="Minimal 6 karakter"
+                                placeholder="Minimal 8 karakter"
                                 value={data.password}
                                 onChange={(e) => setData('password', e.target.value)}
                             />

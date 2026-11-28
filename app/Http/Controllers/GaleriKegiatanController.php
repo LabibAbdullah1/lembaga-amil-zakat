@@ -53,7 +53,7 @@ class GaleriKegiatanController extends Controller
             'jumlah_penerima' => 'nullable|integer|min:0',
             'urutan' => 'nullable|integer|min:0',
             'is_tampil' => 'nullable|boolean',
-            'gambar' => 'required_without:gambar_url|nullable|image|mimes:jpeg,png,jpg,webp,svg|max:5120',
+            'gambar' => 'required_without:gambar_url|nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'gambar_url' => 'nullable|string|max:255',
         ]);
 
@@ -62,7 +62,8 @@ class GaleriKegiatanController extends Controller
 
             if ($request->hasFile('gambar')) {
                 $file = $request->file('gambar');
-                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $extension = strtolower($file->extension() ?: 'jpg');
+                $filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
                 $path = $file->storeAs('galeri', $filename, 'public');
                 $gambarUrl = Storage::url($path);
             }
@@ -99,19 +100,22 @@ class GaleriKegiatanController extends Controller
             'jumlah_penerima' => 'nullable|integer|min:0',
             'urutan' => 'nullable|integer|min:0',
             'is_tampil' => 'nullable|boolean',
-            'gambar' => 'nullable|image|mimes:jpeg,png,jpg,webp,svg|max:5120',
+            'gambar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
         ]);
 
         try {
             if ($request->hasFile('gambar')) {
-                // Hapus gambar lama jika disimpan di storage
+                // Hapus gambar lama jika disimpan di storage dengan aman dari path traversal
                 if (str_starts_with($galeri->gambar_url, '/storage/galeri/')) {
-                    $oldPath = str_replace('/storage/', '', $galeri->gambar_url);
-                    Storage::disk('public')->delete($oldPath);
+                    $safeFilename = basename($galeri->gambar_url);
+                    if ($safeFilename !== '') {
+                        Storage::disk('public')->delete('galeri/' . $safeFilename);
+                    }
                 }
 
                 $file = $request->file('gambar');
-                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $extension = strtolower($file->extension() ?: 'jpg');
+                $filename = time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
                 $path = $file->storeAs('galeri', $filename, 'public');
                 $galeri->gambar_url = Storage::url($path);
             }
@@ -153,8 +157,10 @@ class GaleriKegiatanController extends Controller
             $galeri = GaleriKegiatan::findOrFail($id);
 
             if (str_starts_with($galeri->gambar_url, '/storage/galeri/')) {
-                $oldPath = str_replace('/storage/', '', $galeri->gambar_url);
-                Storage::disk('public')->delete($oldPath);
+                $safeFilename = basename($galeri->gambar_url);
+                if ($safeFilename !== '') {
+                    Storage::disk('public')->delete('galeri/' . $safeFilename);
+                }
             }
 
             $galeri->delete();

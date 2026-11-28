@@ -112,5 +112,69 @@ class ExampleTest extends TestCase
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        $response->assertHeader('X-Permitted-Cross-Domain-Policies', 'none');
+        $response->assertHeader('X-XSS-Protection', '0');
+        $response->assertHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    }
+
+    public function test_galeri_upload_rejects_svg_format(): void
+    {
+        $admin = new PenggunaSistem([
+            'nama_lengkap' => 'Admin Sistem',
+            'username' => 'admin_test',
+            'email' => 'admin@masjid.local',
+            'peran' => PenggunaSistem::PERAN_ADMIN,
+            'status_aktif' => 1,
+        ]);
+        $admin->id = 1;
+
+        $file = \Illuminate\Http\UploadedFile::fake()->create('malicious.svg', 100, 'image/svg+xml');
+
+        $response = $this->actingAs($admin)
+            ->post('/master/galeri', [
+                'judul' => 'Kegiatan Uji Coba',
+                'kategori' => 'Zakat_Fitrah',
+                'tanggal_kegiatan' => '2026-03-20',
+                'gambar' => $file,
+            ]);
+
+        $response->assertSessionHasErrors('gambar');
+    }
+
+    public function test_whatsapp_notification_service_formats_phone_and_message(): void
+    {
+        $formatted = \App\Services\WhatsAppNotificationService::formatPhoneNumber('0812-3456-7890');
+        $this->assertSame('6281234567890', $formatted);
+
+        $msg = \App\Services\WhatsAppNotificationService::buildReceiptMessage((object) [
+            'nama_muzaki' => 'Ahmad Dahlan',
+            'no_kwitansi' => 'KWZ-202603-TEST01',
+            'nama_dana' => 'Zakat Fitrah Beras',
+            'metode_bayar' => 'Beras',
+            'nama_amil' => 'Salman Al-Farisi',
+            'jumlah_jiwa' => 4,
+            'total_nominal' => 0,
+            'total_beras_kg' => 10.0,
+            'tahun_hijriah' => '1447',
+        ]);
+
+        $this->assertStringContainsString('KWZ-202603-TEST01', $msg);
+        $this->assertStringContainsString('Ahmad Dahlan', $msg);
+        $this->assertStringContainsString('Ajarakallahu fiima a\'thaita', $msg);
+
+        $waUrl = \App\Services\WhatsAppNotificationService::buildWhatsAppUrl('081234567890', $msg);
+        $this->assertNotNull($waUrl);
+        $this->assertStringStartsWith('https://wa.me/6281234567890?text=', $waUrl);
+    }
+
+    public function test_non_existent_url_returns_custom_404_error_page(): void
+    {
+        $response = $this->get('/halaman-yang-pasti-tidak-ada-999');
+
+        $response->assertStatus(404);
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('Error')
+            ->where('status', 404)
+        );
     }
 }

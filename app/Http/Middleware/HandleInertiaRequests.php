@@ -220,6 +220,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'notif_wa' => fn () => $request->session()->get('notif_wa'),
             ],
         ];
     }

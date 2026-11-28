@@ -41,10 +41,10 @@ class PenggunaSistemController extends Controller
     {
         $validated = $request->validate([
             'nama_lengkap' => ['required', 'string', 'max:120'],
-            'username' => ['required', 'string', 'max:50', 'alpha_dash'],
-            'email' => ['required', 'email', 'max:120'],
+            'username' => ['required', 'string', 'max:50', 'alpha_dash', Rule::unique('pengguna_sistem', 'username')],
+            'email' => ['required', 'email', 'max:120', Rule::unique('pengguna_sistem', 'email')],
             'no_hp' => ['nullable', 'string', 'max:25'],
-            'password' => ['required', 'string', 'min:6'],
+            'password' => ['required', 'string', 'min:8'],
             'peran' => ['required', Rule::in(PenggunaSistem::DAFTAR_PERAN)],
             'status_aktif' => ['required', 'boolean'],
         ]);
@@ -75,10 +75,10 @@ class PenggunaSistemController extends Controller
     {
         $validated = $request->validate([
             'nama_lengkap' => ['required', 'string', 'max:120'],
-            'username' => ['required', 'string', 'max:50', 'alpha_dash'],
-            'email' => ['required', 'email', 'max:120'],
+            'username' => ['required', 'string', 'max:50', 'alpha_dash', Rule::unique('pengguna_sistem', 'username')->ignore($id)],
+            'email' => ['required', 'email', 'max:120', Rule::unique('pengguna_sistem', 'email')->ignore($id)],
             'no_hp' => ['nullable', 'string', 'max:25'],
-            'password' => ['nullable', 'string', 'min:6'],
+            'password' => ['nullable', 'string', 'min:8'],
             'peran' => ['required', Rule::in(PenggunaSistem::DAFTAR_PERAN)],
             'status_aktif' => ['required', 'boolean'],
         ]);
