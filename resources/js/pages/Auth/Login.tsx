@@ -94,7 +94,7 @@ export default function Login() {
             <OfflineBanner />
 
             <header className="border-b border-border bg-card/95 backdrop-blur-xs">
-                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
                     <Link
                         href="/transparansi"
                         className="flex items-center gap-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-ring min-w-0"
@@ -143,7 +143,7 @@ export default function Login() {
                 </div>
             </header>
 
-            <main className="mx-auto flex flex-1 w-full max-w-6xl items-center justify-center px-4 py-10 sm:px-6 laz-page-enter">
+            <main className="mx-auto flex flex-1 w-full max-w-7xl items-center justify-center px-4 py-10 sm:px-6 laz-page-enter">
                 <div className="grid w-full gap-10 lg:grid-cols-12 lg:items-center">
                     <section className="lg:col-span-6 space-y-6">
                         <div className="space-y-3">
@@ -175,7 +175,7 @@ export default function Login() {
                     </section>
 
                     <section className="lg:col-span-6">
-                        <Card className="mx-auto w-full max-w-md shadow-sm">
+                        <Card className="mx-auto w-full max-w-lg shadow-sm">
                             <CardHeader className="space-y-1">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-xl">Masuk Akun Panitia</CardTitle>
@@ -310,7 +310,7 @@ export default function Login() {
             </main>
 
             <footer className="border-t bg-card py-4">
-                <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
+                <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
                     <span>Lembaga Amil Zakat (LAZ) & Panitia Zakat Fitrah Masjid</span>
                     <span>Akses Terlindungi Enkripsi & Pembatasan Percobaan Login</span>
                 </div>

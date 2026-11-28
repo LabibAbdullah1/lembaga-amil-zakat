@@ -274,7 +274,7 @@ export default function DasarHukumPage({ daftarAsnaf = [] }: DasarHukumProps) {
         <div className="min-h-screen bg-background text-foreground">
             <Head title="Dasar Hukum Syariat & Pasal Zakat — SI-LAZ Masjid" />
             <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-xs">
-                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
                     <Link href="/" className="flex items-center gap-2.5 min-w-0">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-card shadow-2xs">
                             <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -308,7 +308,7 @@ export default function DasarHukumPage({ daftarAsnaf = [] }: DasarHukumProps) {
                 </div>
             </header>
 
-            <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
                 <DasarHukumBody daftarAsnaf={daftarAsnaf} />
             </main>
         </div>

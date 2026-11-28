@@ -387,7 +387,7 @@ export default function TransparansiPublik({
                 ref={headerRef}
                 className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-xs"
             >
-                <div className="mx-auto flex h-16 max-w-[1100px] items-center justify-between gap-3 px-4 sm:px-6">
+                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
                     {/* Brand / Logo */}
                     <Link
                         href="/"
@@ -792,7 +792,7 @@ export default function TransparansiPublik({
                 </div>
             </header>
 
-            <main className="mx-auto flex-1 w-full max-w-[1100px] px-4 py-12 sm:px-6 sm:py-16 space-y-20 laz-page-enter">
+            <main className="mx-auto flex-1 w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16 space-y-20 laz-page-enter">
                 <RdbmsAlert message={rdbmsError} />
 
                 {/* SECTION 1: Hero Editorial & 4 Kartu KPI Datar */}
@@ -811,11 +811,11 @@ export default function TransparansiPublik({
                             </span>
                         </div>
 
-                        <h1 className="font-serif text-4xl sm:text-5xl lg:text-[56px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground max-w-[700px]">
+                        <h1 className="font-serif text-4xl sm:text-5xl lg:text-[56px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground max-w-3xl">
                             Menjaga <span className="text-primary">Amanah Zakat</span> Secara Terbuka dan Tepat Sasaran.
                         </h1>
 
-                        <p className="max-w-[700px] text-[17px] leading-[1.75] text-muted-foreground">
+                        <p className="max-w-3xl text-[17px] leading-[1.75] text-muted-foreground">
                             Setiap rupiah dan kilogram beras yang Anda tunaikan melalui Masjid Istiqamah Rumbai dicatat secara transparan, diaudit di tingkat basis data, dan disalurkan kepada delapan golongan Asnaf sesuai tuntunan syariat.
                         </p>
 
@@ -904,7 +904,7 @@ export default function TransparansiPublik({
 
                 {/* SECTION 2: Profil & Pilar Pengelolaan Interaktif */}
                 <LazySection id="profil" className="scroll-mt-32 space-y-8">
-                    <div className="space-y-3 max-w-[700px]">
+                    <div className="space-y-3 max-w-3xl">
                         <p className="font-mono text-xs uppercase tracking-wider text-primary">
                             01 · Profil &amp; Tata Kelola
                         </p>
@@ -950,7 +950,7 @@ export default function TransparansiPublik({
                                 <h3 className="font-serif text-2xl font-medium text-foreground">
                                     {selectedPillar.title}
                                 </h3>
-                                <p className="max-w-[700px] text-[16px] leading-[1.75] text-foreground/90">
+                                <p className="max-w-3xl text-[16px] leading-[1.75] text-foreground/90">
                                     {selectedPillar.summary}
                                 </p>
                             </div>
@@ -973,7 +973,7 @@ export default function TransparansiPublik({
                 {/* SECTION: Galeri Dokumentasi Penyaluran & Bukti Kegiatan Nyata */}
                 <LazySection id="galeri" className="scroll-mt-32 space-y-8" minHeightClass="min-h-[400px]">
                     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                        <div className="space-y-3 max-w-[700px]">
+                        <div className="space-y-3 max-w-3xl">
                             <p className="font-mono text-xs uppercase tracking-wider text-primary">
                                 02 · Bukti Kegiatan &amp; Penyaluran Nyata
                             </p>
@@ -1108,7 +1108,7 @@ export default function TransparansiPublik({
 
                 {/* SECTION 3: Kalkulator Zakat Interaktif */}
                 <LazySection id="kalkulator" className="scroll-mt-32 space-y-8">
-                    <div className="space-y-3 max-w-[700px]">
+                    <div className="space-y-3 max-w-3xl">
                         <p className="font-mono text-xs uppercase tracking-wider text-primary">
                             03 · Simulasi Mandiri
                         </p>
@@ -1288,7 +1288,7 @@ export default function TransparansiPublik({
                 {/* SECTION 4: Portal Data Transparansi Real-Time (Lazy Mounted on Scroll) */}
                 <LazySection id="transparansi" className="scroll-mt-32 space-y-6" minHeightClass="min-h-[360px]">
                     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                        <div className="space-y-2 max-w-[700px]">
+                        <div className="space-y-2 max-w-3xl">
                             <p className="font-mono text-xs uppercase tracking-wider text-primary">
                                 03 · Data Publik Terverifikasi
                             </p>
@@ -1638,7 +1638,7 @@ export default function TransparansiPublik({
                 {/* SECTION 5: Light Editorial Section (#FAF8F5) - Cara Menunaikan Zakat */}
                 <LazySection id="layanan" className="scroll-mt-32">
                     <div className="rounded-lg bg-secondary/80 border border-border p-6 sm:p-10 text-foreground space-y-8">
-                        <div className="space-y-3 max-w-[700px]">
+                        <div className="space-y-3 max-w-3xl">
                             <p className="font-mono text-xs uppercase tracking-wider text-primary">
                                 04 · Layanan Jamaah
                             </p>
@@ -1796,7 +1796,7 @@ export default function TransparansiPublik({
 
             {/* Footer Informatif & Kontak Person */}
             <footer id="kontak" className="scroll-mt-32 border-t border-border bg-secondary">
-                <div className="mx-auto max-w-[1100px] px-4 py-12 sm:px-6">
+                <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
                     <div className="grid gap-10 md:grid-cols-12">
                         <div className="md:col-span-5 space-y-4">
                             <div className="flex items-center gap-3">
